@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Si el archivo o directorio existe, servirlo directamente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  
+  # Si la petición empieza con api/, dejar que Apache la procese sin redirección
+  RewriteRule ^api/ - [L]
+
+  # Todo lo demás se redirige a index.html para que lo maneje React Router
+  RewriteRule ^ index.html [L]
+</IfModule>

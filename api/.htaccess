@@ -1,0 +1,20 @@
+RewriteEngine On
+
+# Pasar el header Authorization a PHP (necesario en Apache/XAMPP)
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Permitir CORS preflight
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule .* - [R=204,L]
+
+# Denegar el acceso directo a archivos de configuración y utilidades
+<FilesMatch "^(config\.php|helpers\.php)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

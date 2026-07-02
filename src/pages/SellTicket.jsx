@@ -23,7 +23,18 @@ export const DRAW_HOURS = [
 
 const formatHourAmPm = (hourStr) => {
   if (!hourStr) return '';
-  const [h, m] = hourStr.split(':').map(Number);
+  let str = String(hourStr).trim().toLowerCase();
+  str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+  let h = 0, m = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    h = Number(parts[0]);
+    m = Number(parts[1]);
+  } else {
+    h = Number(str);
+    m = 0;
+  }
+  if (isNaN(h) || isNaN(m)) return hourStr;
   const ampm = h >= 12 ? 'PM' : 'AM';
   const displayH = h % 12 || 12;
   const displayM = String(m).padStart(2, '0');
@@ -104,7 +115,9 @@ const JugadasEditor = ({ lotteryId, jugadas, onChange, blockedNums }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
       {jugadas.map((j, idx) => {
-        const isBlocked = !isFechea && j.numero !== '' && blockedNums.includes(String(j.numero));
+        const isBlocked = isFechea
+          ? (j.fecha && blockedNums.includes(j.fecha))
+          : (j.numero !== '' && blockedNums.includes(String(j.numero)));
         return (
           <div key={j._id} style={{
             background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)',
@@ -173,17 +186,18 @@ const JugadasEditor = ({ lotteryId, jugadas, onChange, blockedNums }) => {
                 })()
               ) : (
                 <div style={{ position: 'relative', flex: 2 }}>
-                  <input
-                    className="form-control"
-                    type="number"
-                    placeholder={`${lottery.numberRange?.min ?? 0}–${lottery.numberRange?.max ?? 99}`}
-                    value={j.numero}
-                    onChange={(e) => update(idx, 'numero', e.target.value)}
-                    min={lottery.numberRange?.min}
-                    max={lottery.numberRange?.max}
-                    style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem',
-                      color: isBlocked ? 'var(--neon-red)' : 'var(--text-primary)' }}
-                  />
+                <input
+                  className="form-control"
+                  type="number"
+                  placeholder={`${lottery.numberRange?.min ?? 0}–${lottery.numberRange?.max ?? 99}`}
+                  value={j.numero}
+                  onChange={(e) => update(idx, 'numero', e.target.value)}
+                  min={lottery.numberRange?.min}
+                  max={lottery.numberRange?.max}
+                  style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem',
+                    color: isBlocked ? 'var(--neon-red)' : 'var(--text-primary)' }}
+                  autoFocus={idx === 0}
+                />
                 </div>
               )}
 
@@ -287,6 +301,7 @@ export const SellTicket = () => {
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedHour, setSelectedHour] = useState('');
+  const [selectedHours, setSelectedHours] = useState([]); // multi-sorteo
 
   // Estados para venta por rango
   const [saleMode, setSaleMode] = useState('single'); // 'single' o 'range'
@@ -304,11 +319,13 @@ export const SellTicket = () => {
     const nextDraw = getNextAvailableDraw(closeMinutes, hours);
     setSelectedDate(nextDraw.date);
     setSelectedHour(nextDraw.hour);
+    setSelectedHours([nextDraw.hour]); // reset multi-draw
   }, [settings?.drawCloseMinutes, selectedType]);
 
   const lottery = getLotteryById(selectedType);
   const isGameDisabled = disabledGames.includes(selectedType);
-  const totalMonto = jugadas.reduce((s, j) => s + (parseFloat(j.monto) || 0), 0);
+  const activeHoursCount = (lottery?.allowMultiDraw && selectedHours.length > 1) ? selectedHours.length : 1;
+  const totalMonto = jugadas.reduce((s, j) => s + (parseFloat(j.monto) || 0), 0) * activeHoursCount;
 
   const lotteryDrawHours = lottery?.drawHours
     ? lottery.drawHours.split(',').map(h => h.trim()).filter(Boolean)
@@ -437,9 +454,13 @@ export const SellTicket = () => {
         await dialog.alert(errs[0], { title: 'Datos incompletos', type: 'warning' });
         return;
       }
-      if (!lottery.isFechea && j.numero !== '' && blockedNums.includes(String(j.numero))) {
-        await dialog.alert(`El número ${j.numero} está cerrado para este juego.`, {
-          title: 'Número bloqueado', type: 'warning',
+      const isBlocked = selectedType === 'fechea'
+        ? (j.fecha && blockedNums.includes(j.fecha))
+        : (j.numero !== '' && blockedNums.includes(String(j.numero)));
+      if (isBlocked) {
+        const displayVal = selectedType === 'fechea' ? formatFecheaDate(j.fecha) : j.numero;
+        await dialog.alert(`La jugada (${displayVal}) está cerrada para este juego.`, {
+          title: 'Fecha/Número Bloqueado', type: 'warning',
         });
         return;
       }
@@ -451,10 +472,12 @@ export const SellTicket = () => {
   const handleConfirmSale = async () => {
     setLoading(true);
     try {
+      const isMulti = lottery?.allowMultiDraw && selectedHours.length > 1;
       const saleData = {
         lotteryId: selectedType,
         comprador: comprador.trim() || null,
         horaSorteo: selectedHour,
+        ...(isMulti ? { multiHours: selectedHours } : {}),
         drawDate: selectedDate,
         jugadas: jugadas.map((j) => ({
           numero:    j.numero,
@@ -465,8 +488,17 @@ export const SellTicket = () => {
           fraccion:  j.fraccion ? parseInt(j.fraccion) : null,
         })),
       };
-      const sale = await addSale(saleData);
-      setLastSale(sale);
+      const result = await addSale(saleData);
+      let saleToDisplay = null;
+      if (result?.sales && result.sales.length > 0) {
+        saleToDisplay = {
+          ...result.sales[0],
+          multiHours: result.sales.map(s => s.horaSorteo || s.hora_sorteo)
+        };
+      } else {
+        saleToDisplay = result?.sale || result;
+      }
+      setLastSale(saleToDisplay);
       setShowVoucher(true);
       setShowConfirm(false);
       setJugadas([emptyJugada(selectedType, lottery?.defaultPrice || 0)]);
@@ -474,7 +506,7 @@ export const SellTicket = () => {
       toast.success(`¡Boleto vendido! ${lottery?.priceLabel}${totalMonto.toFixed(2)}`);
 
       if (settings.autoprint && connected) {
-        await print(sale, settings.businessName);
+        await print(saleToDisplay, settings.businessName);
       }
     } catch (err) {
       toast.error(err.message || 'Error al registrar la venta');
@@ -565,24 +597,59 @@ export const SellTicket = () => {
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label htmlFor="draw-hour-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>
-                Hora del sorteo
+                Hora del sorteo {lottery?.allowMultiDraw && <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>(toca para seleccionar varias)</span>}
               </label>
-              <select
-                id="draw-hour-select"
-                className="form-control"
-                value={selectedHour}
-                onChange={(e) => setSelectedHour(e.target.value)}
-                style={{ width: '100%', fontWeight: 700 }}
-              >
-                {lotteryDrawHours.map((hourVal) => {
-                  const isOpen = isDrawOpen(selectedDate, hourVal, settings?.drawCloseMinutes ?? 10);
-                  return (
-                    <option key={hourVal} value={hourVal} disabled={!isOpen}>
-                      {formatHourAmPm(hourVal)} {!isOpen ? '(Cerrado)' : ''}
-                    </option>
-                  );
-                })}
-              </select>
+              {lottery?.allowMultiDraw ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {lotteryDrawHours.map((hourVal) => {
+                    const isOpen = isDrawOpen(selectedDate, hourVal, settings?.drawCloseMinutes ?? 10);
+                    const isSel = selectedHours.includes(hourVal);
+                    return (
+                      <button
+                        key={hourVal}
+                        type="button"
+                        onClick={() => {
+                          if (!isOpen) return;
+                          setSelectedHours(prev =>
+                            prev.includes(hourVal) ? prev.filter(h => h !== hourVal) : [...prev, hourVal]
+                          );
+                          if (!selectedHours.includes(hourVal)) setSelectedHour(hourVal);
+                        }}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: `2px solid ${isSel ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isSel ? 'var(--accent)' : 'transparent',
+                          color: isSel ? '#fff' : isOpen ? 'var(--text-primary)' : 'var(--text-muted)',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: isOpen ? 'pointer' : 'not-allowed',
+                          opacity: isOpen ? 1 : 0.5,
+                        }}
+                      >
+                        {formatHourAmPm(hourVal)}{!isOpen ? ' ✗' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <select
+                  id="draw-hour-select"
+                  className="form-control"
+                  value={selectedHour}
+                  onChange={(e) => setSelectedHour(e.target.value)}
+                  style={{ width: '100%', fontWeight: 700 }}
+                >
+                  {lotteryDrawHours.map((hourVal) => {
+                    const isOpen = isDrawOpen(selectedDate, hourVal, settings?.drawCloseMinutes ?? 10);
+                    return (
+                      <option key={hourVal} value={hourVal} disabled={!isOpen}>
+                        {formatHourAmPm(hourVal)} {!isOpen ? '(Cerrado)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
           </div>
 
@@ -696,6 +763,7 @@ export const SellTicket = () => {
                     value={rangeFrom}
                     onChange={(e) => setRangeFrom(e.target.value)}
                     style={{ textAlign: 'center', fontWeight: 800, fontSize: '1.05rem' }}
+                    autoFocus
                   />
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>

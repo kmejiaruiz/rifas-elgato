@@ -1,28 +1,54 @@
 // ─── App principal con autenticación y rutas por rol ─────────
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 
 NProgress.configure({ showSpinner: false });
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
+import { api } from './services/apiService';
 import { AppProvider, useApp } from './context/AppContext';
 import { PrinterProvider } from './context/PrinterContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppStatusProvider, useAppStatus } from './context/AppStatusContext';
 import { can } from './utils/permissions';
 import { PrinterStatus } from './components/printer/PrinterStatus';
+import { AppBlockedModal } from './components/ui/AppBlockedModal';
 import { Dashboard } from './pages/Dashboard';
 import { SellTicket } from './pages/SellTicket';
 import { SalesHistory } from './pages/SalesHistory';
 import { Settings } from './pages/Settings';
 import { AdminPanel } from './pages/AdminPanel';
 import { LoginPage } from './pages/LoginPage';
+import { RootPanel } from './pages/RootPanel';
 import { DialogProvider } from './components/ui/DialogProvider';
 import { WinnerNotification, NotificationPermissionBanner } from './components/ui/WinnerNotification';
 import {
   LayoutDashboard, Ticket, ClipboardList,
   Settings as SettingsIcon, Shield, LogOut,
 } from 'lucide-react';
+
+// ─── Reloj en tiempo real (solo PC) ─────────────────────────
+const HeaderClock = () => {
+  const [time, setTime] = useState(() => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  });
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  return (
+    <span className="header-clock-badge" title="Hora actual">
+      {time}
+    </span>
+  );
+};
 
 // ─── Ruta protegida ──────────────────────────────────────────
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -48,16 +74,19 @@ const ProtectedRoute = ({ children, requiredPermission }) => {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+  // Root nunca accede a rutas normales — solo a /root
+  if (user.role === 'root') return <Navigate to="/root" replace />;
   if (requiredPermission && !can(user, requiredPermission)) {
     return <Navigate to="/" replace />;
   }
   return children;
 };
 
-// ─── Shell de la app (post-login) ────────────────────────────
+// ─── Shell de la app (post-login, usuarios normales) ─────────
 const AppShell = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { isBlocked } = useAppStatus();
   const isAdmin = user?.role === 'admin';
 
   const NAV_ITEMS = [
@@ -80,58 +109,23 @@ const AppShell = () => {
 
   return (
     <div className="app-shell">
-      {/* Header */}
-      <header className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{pageTitle}</span>
-          {user && (
-            <span style={{
-              fontSize: '0.65rem', fontWeight: 700, padding: '0.15rem 0.5rem',
-              borderRadius: '99px', textTransform: 'uppercase', letterSpacing: '0.06em',
-              background: user.role === 'admin' ? 'rgba(168,85,247,0.15)' : 'rgba(96,165,250,0.1)',
-              color: user.role === 'admin' ? 'var(--neon-purple)' : 'var(--neon-blue)',
-              border: `1px solid ${user.role === 'admin' ? 'rgba(168,85,247,0.3)' : 'rgba(96,165,250,0.2)'}`,
-            }}>
-              {user.role === 'admin' ? '[Admin]' : '[Vendedor]'} {user.name}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <PrinterStatus />
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={logout}
-            title="Cerrar sesión"
-            id="logout-btn"
-            style={{ padding: '0.5rem' }}
-          >
-            <LogOut size={18} color="var(--text-muted)" />
-          </button>
-        </div>
-      </header>
-
-      {/* Banner de permisos de notificación */}
-      <NotificationPermissionBanner />
-
-      {/* Contenido */}
-      <main style={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/sell" element={<ProtectedRoute requiredPermission="sell"><SellTicket /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute requiredPermission="viewHistory"><SalesHistory /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute requiredPermission="manageGames"><AdminPanel /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-
-      {/* Bottom Nav */}
+      {/* Navigation (Sidebar on PC, Bottom Nav on Mobile) */}
       <nav className="bottom-nav" role="navigation" aria-label="Navegación principal">
+        {/* Brand — only visible on desktop sidebar */}
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-icon">🎫</span>
+          <span className="sidebar-brand-name">Amaranto</span>
+        </div>
+
+        {/* Nav divider label — only on desktop */}
+        <span className="sidebar-section-label">Menú</span>
+
         {NAV_ITEMS.map(({ path, label, Icon, exact }) => (
           <NavLink
             key={path}
             to={path}
             end={exact}
+            title={label}
             className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}
             id={`nav-${label.toLowerCase().replace(' ', '-')}`}
           >
@@ -140,6 +134,55 @@ const AppShell = () => {
           </NavLink>
         ))}
       </nav>
+
+      {/* Main Content Wrapper */}
+      <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+        {/* Header */}
+        <header className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>{pageTitle}</span>
+            {user && (
+              <span style={{
+                fontSize: '0.65rem', fontWeight: 700, padding: '0.15rem 0.5rem',
+                borderRadius: '99px', textTransform: 'uppercase', letterSpacing: '0.06em',
+                background: user.role === 'admin' ? 'rgba(168,85,247,0.15)' : 'rgba(96,165,250,0.1)',
+                color: user.role === 'admin' ? 'var(--neon-purple)' : 'var(--neon-blue)',
+                border: `1px solid ${user.role === 'admin' ? 'rgba(168,85,247,0.3)' : 'rgba(96,165,250,0.2)'}`,
+              }}>
+                {user.role === 'admin' ? '[Admin]' : '[Vendedor]'} {user.name}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <HeaderClock />
+            <PrinterStatus />
+            <button
+              className="btn btn-ghost btn-icon"
+              onClick={logout}
+              title="Cerrar sesión"
+              id="logout-btn"
+              style={{ padding: '0.5rem' }}
+            >
+              <LogOut size={18} color="var(--text-muted)" />
+            </button>
+          </div>
+        </header>
+
+        {/* Banner de permisos de notificación */}
+        <NotificationPermissionBanner />
+
+        {/* Contenido */}
+        <main style={{ flex: 1 }}>
+          <Routes>
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/sell" element={<ProtectedRoute requiredPermission="sell"><SellTicket /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute requiredPermission="viewHistory"><SalesHistory /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute requiredPermission="manageGames"><AdminPanel /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
 
       <Toaster
         position="top-center"
@@ -158,6 +201,9 @@ const AppShell = () => {
       />
       {/* Notificaciones de boleto ganador */}
       <WinnerNotification />
+
+      {/* Modal de bloqueo — se superpone sobre todo cuando root desactiva la app */}
+      {isBlocked && <AppBlockedModal />}
     </div>
   );
 };
@@ -192,9 +238,29 @@ const AuthRouter = () => {
     <Routes>
       <Route
         path="/login"
-        element={user ? <Navigate to="/" replace /> : <LoginPage />}
+        element={
+          user
+            ? (user.role === 'root' ? <Navigate to="/root" replace /> : <Navigate to="/" replace />)
+            : <LoginPage />
+        }
       />
-      <Route path="/*" element={user ? <AppShell /> : <Navigate to="/login" replace />} />
+      {/* Ruta exclusiva root */}
+      <Route
+        path="/root"
+        element={
+          !user ? <Navigate to="/login" replace /> :
+          user.role !== 'root' ? <Navigate to="/" replace /> :
+          <RootPanel />
+        }
+      />
+      <Route
+        path="/*"
+        element={
+          user
+            ? (user.role === 'root' ? <Navigate to="/root" replace /> : <AppShell />)
+            : <Navigate to="/login" replace />
+        }
+      />
     </Routes>
   );
 };
@@ -204,11 +270,41 @@ const AppLoader = ({ children }) => {
   const { user } = useAuth();
   const { loadAllData } = useApp();
 
-  // Cargar ventas, resumen y settings completos tras cada login
+  // Cargar ventas, resumen y settings completos tras cada login (solo usuarios normales)
   useEffect(() => {
-    if (user) loadAllData();
+    if (user && user.role !== 'root') loadAllData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Polling de notificaciones para administrador (pagos de boletos)
+  useEffect(() => {
+    let intervalId = null;
+
+    const checkNotifications = async () => {
+      try {
+        const res = await api.get('/notifications.php');
+        if (res && res.notifications && res.notifications.length > 0) {
+          res.notifications.forEach((n) => {
+            toast(n.message, {
+              icon: '💰',
+              duration: 8000,
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('Error fetching notifications:', err.message);
+      }
+    };
+
+    if (user && user.role === 'admin') {
+      checkNotifications();
+      intervalId = setInterval(checkNotifications, 12000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [user]);
 
   return children;
 };
@@ -217,13 +313,15 @@ const App = () => (
   <BrowserRouter>
     <AuthProvider>
       <AppProvider>
-        <PrinterProvider>
-          <DialogProvider>
-            <AppLoader>
-              <AuthRouter />
-            </AppLoader>
-          </DialogProvider>
-        </PrinterProvider>
+        <AppStatusProvider>
+          <PrinterProvider>
+            <DialogProvider>
+              <AppLoader>
+                <AuthRouter />
+              </AppLoader>
+            </DialogProvider>
+          </PrinterProvider>
+        </AppStatusProvider>
       </AppProvider>
     </AuthProvider>
   </BrowserRouter>

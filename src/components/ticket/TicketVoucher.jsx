@@ -7,6 +7,43 @@ import { parseDate, formatFecheaDate, getFecheaPlayValue } from '../../utils/dat
 import toast from 'react-hot-toast';
 import { usePrinter } from '../../context/PrinterContext';
 
+const formatHourAmPm = (hourStr) => {
+  if (!hourStr) return '';
+  let str = String(hourStr).trim().toLowerCase();
+  str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+  let h = 0, m = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    h = Number(parts[0]);
+    m = Number(parts[1]);
+  } else {
+    h = Number(str);
+    m = 0;
+  }
+  if (isNaN(h) || isNaN(m)) return hourStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const displayH = h % 12 || 12;
+  const displayM = String(m).padStart(2, '0');
+  return `${displayH}:${displayM} ${ampm}`;
+};
+
+const getDrawHoursText = (sale) => {
+  if (sale.multiHours && Array.isArray(sale.multiHours) && sale.multiHours.length > 0) {
+    return sale.multiHours.map(formatHourAmPm).join(', ');
+  }
+  const hr = sale.horaSorteo || sale.hora_sorteo || sale.sorteo;
+  return hr ? formatHourAmPm(hr) : '';
+};
+
+const formatDrawDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+  }
+  return dateStr;
+};
+
 export const TicketVoucher = ({ sale, settings, onClose }) => {
   const voucherRef = useRef(null);
   const [theme, setTheme] = useState('digital'); // 'digital' | 'thermal'
@@ -183,8 +220,10 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
       let whatsappText = `🎟️ *${settings.businessName.toUpperCase()}* 🎟️\n`;
       whatsappText += `━━━━━━━━━━━━━━━━━━━━━\n`;
       whatsappText += `*Boleto:* #${sale.id?.split('_').pop()}\n`;
-      whatsappText += `*Sorteo:* ${lottery?.name || 'Rifa'}\n`;
-      whatsappText += `*Fecha/Hora:* ${dateStr} ${timeStr}\n`;
+      const hoursText = getDrawHoursText(sale);
+      whatsappText += `*Sorteo:* ${lottery?.name || 'Rifa'} ${hoursText ? `(${hoursText})` : ''}\n`;
+      whatsappText += `*Fecha Venta:* ${dateStr} ${timeStr}\n`;
+      whatsappText += `*Fecha Sorteo:* ${formatDrawDate(sale.lines?.[0]?.fecha || sale.drawDate)}\n`;
       whatsappText += `*Vendedor:* ${sale.sellerName}\n`;
       if (sale.comprador) {
         whatsappText += `*Cliente:* ${sale.comprador}\n`;
@@ -407,15 +446,17 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Sorteo:</span>
-              <strong style={{ color: theme === 'digital' ? '#ffffff' : '#000000' }}>{lottery?.name || 'Rifa'}</strong>
+              <strong style={{ color: theme === 'digital' ? '#ffffff' : '#000000' }}>
+                {lottery?.name || 'Rifa'} {getDrawHoursText(sale) ? `(${getDrawHoursText(sale)})` : ''}
+              </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Fecha:</span>
-              <span style={{ fontWeight: 700 }}>{dateStr}</span>
+              <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Fecha Venta:</span>
+              <span style={{ fontWeight: 700 }}>{dateStr} {timeStr}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Hora:</span>
-              <span style={{ fontWeight: 700 }}>{timeStr}</span>
+              <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Fecha Sorteo:</span>
+              <span style={{ fontWeight: 700 }}>{formatDrawDate(sale.lines?.[0]?.fecha || sale.drawDate)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: theme === 'digital' ? '#475569' : '#000000' }}>Vendedor:</span>

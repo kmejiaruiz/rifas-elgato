@@ -1,100 +1,385 @@
 // ============================================================
-// storageService — ahora usa MySQL vía API PHP
+// storageService — ahora usa MySQL vía API PHP y soporta PWA Offline
 // Mantiene la misma interfaz que la versión IndexedDB
 // ============================================================
 import { api } from './apiService';
+import toast from 'react-hot-toast';
+
+// Helper to check online status
+const isOnline = () => navigator.onLine;
 
 // ─── Ventas ──────────────────────────────────────────────────
 
 export const saveSale = async (saleData) => {
-  const { sale } = await api.post('/sales.php', saleData);
-  return sale;
+  if (!isOnline()) {
+    // Modo offline
+    const queue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
+    const tempId = `temp_sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Obtener usuario autenticado en offline
+    const userStr = localStorage.getItem('rifas_user');
+    const user = userStr ? JSON.parse(userStr) : { id: 0, name: 'Vendedor Offline' };
+    
+    const totalMonto = saleData.jugadas.reduce((sum, j) => sum + parseFloat(j.monto || 0), 0);
+    
+    const mockSale = {
+      id: tempId,
+      lotteryId: saleData.lotteryId,
+      comprador: saleData.comprador || '',
+      monto: totalMonto,
+      sellerId: user.id,
+      sellerName: user.name,
+      horaSorteo: saleData.horaSorteo || '12:00',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      prizePaid: 0,
+      isOffline: true,
+      lines: saleData.jugadas.map((j, idx) => ({
+        id: `temp_line_${Date.now()}_${idx}`,
+        saleId: tempId,
+        lotteryId: saleData.lotteryId,
+        numero: saleData.lotteryId === 'fechea' ? (j.fecha || '') : (j.numero || ''),
+        monto: parseFloat(j.monto || 0),
+        fecha: j.fecha || new Date().toISOString().split('T')[0],
+        status: 'active'
+      }))
+    };
+    
+    // Encolar datos para sincronización
+    queue.push({ id: tempId, data: saleData });
+    localStorage.setItem('offline_sales_queue', JSON.stringify(queue));
+    
+    // Mostrar alerta nativa requerida por el usuario
+    alert("Las ventas realizadas en offline se cargarán luego al servidor cuando se conecte a la red.");
+    
+    // Guardar temporalmente en ventas locales en cache para que persista en refrescos offline
+    const cachedSales = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    cachedSales.unshift(mockSale);
+    localStorage.setItem('cached_sales', JSON.stringify(cachedSales));
+    
+    return mockSale;
+  }
+
+  // Modo online
+  const res = await api.post('/sales.php', saleData);
+  return res.sales ? res : res.sale;
 };
 
 export const getAllSales = async () => {
-  const { sales } = await api.get('/sales.php');
-  return sales;
+  if (!isOnline()) {
+    return JSON.parse(localStorage.getItem('cached_sales') || '[]');
+  }
+  try {
+    const { sales } = await api.get('/sales.php');
+    const list = sales || [];
+    localStorage.setItem('cached_sales', JSON.stringify(list));
+    return list;
+  } catch (err) {
+    // Fallback en caso de error de conexión insospechado
+    return JSON.parse(localStorage.getItem('cached_sales') || '[]');
+  }
 };
 
 export const getTodaySales = async () => {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const { sales } = await api.get(`/sales.php?date=${today}`);
-  return sales;
+  if (!isOnline()) {
+    const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    return all.filter(s => s.createdAt && s.createdAt.startsWith(today));
+  }
+  try {
+    const { sales } = await api.get(`/sales.php?date=${today}`);
+    return sales || [];
+  } catch {
+    const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    return all.filter(s => s.createdAt && s.createdAt.startsWith(today));
+  }
 };
 
 export const getSalesByFilter = async (filters = {}) => {
-  const params = new URLSearchParams();
-  if (filters.date)       params.set('date',       filters.date);
-  if (filters.lotteryId)  params.set('lottery_id', filters.lotteryId);
-  if (filters.status)     params.set('status',     filters.status);
-  if (filters.search)     params.set('search',     filters.search);
-  if (filters.sellerId)   params.set('seller_id',  filters.sellerId);
-  const { sales } = await api.get(`/sales.php?${params.toString()}`);
-  return sales;
+  if (!isOnline()) {
+    let all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    if (filters.date) {
+      all = all.filter(s => s.createdAt && s.createdAt.startsWith(filters.date));
+    }
+    if (filters.lotteryId) {
+      all = all.filter(s => s.lotteryId === filters.lotteryId);
+    }
+    if (filters.status) {
+      if (filters.status === 'winner') {
+        all = all.filter(s => s.lines && s.lines.some(l => l.status === 'winner'));
+      } else {
+        all = all.filter(s => s.status === filters.status);
+      }
+    }
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      all = all.filter(s => 
+        (s.comprador && s.comprador.toLowerCase().includes(q)) || 
+        (s.lines && s.lines.some(l => l.numero && l.numero.toString().includes(q))) ||
+        (s.id && s.id.toString().toLowerCase().includes(q))
+      );
+    }
+    return all;
+  }
+  try {
+    const params = new URLSearchParams();
+    if (filters.date)       params.set('date',       filters.date);
+    if (filters.lotteryId)  params.set('lottery_id', filters.lotteryId);
+    if (filters.status)     params.set('status',     filters.status);
+    if (filters.search)     params.set('search',     filters.search);
+    if (filters.sellerId)   params.set('seller_id',  filters.sellerId);
+    const { sales } = await api.get(`/sales.php?${params.toString()}`);
+    return sales || [];
+  } catch {
+    // Fallback offline local
+    let all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    if (filters.date) {
+      all = all.filter(s => s.createdAt && s.createdAt.startsWith(filters.date));
+    }
+    if (filters.lotteryId) {
+      all = all.filter(s => s.lotteryId === filters.lotteryId);
+    }
+    return all;
+  }
 };
 
 export const cancelSale = async (id, adminCreds = null) => {
+  if (!isOnline()) {
+    throw new Error('No se pueden anular boletos en modo offline.');
+  }
   const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}`, adminCreds);
   return sale;
 };
 
 export const paySalePrize = async (id) => {
+  if (!isOnline()) {
+    throw new Error('No se pueden pagar premios en modo offline.');
+  }
   const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}&pay_prize=1`);
   return sale;
 };
 
 export const getSaleById = async (id) => {
-  const { sales } = await api.get(`/sales.php?search=${encodeURIComponent(id)}`);
-  return sales.find((s) => s.id === id) || null;
+  if (!isOnline()) {
+    const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    return all.find((s) => s.id === id) || null;
+  }
+  try {
+    const { sales } = await api.get(`/sales.php?search=${encodeURIComponent(id)}`);
+    return sales.find((s) => s.id === id) || null;
+  } catch {
+    const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
+    return all.find((s) => s.id === id) || null;
+  }
 };
 
 export const getDailySummary = async () => {
-  return await api.get('/sales.php?summary=1');
+  if (!isOnline()) {
+    return JSON.parse(localStorage.getItem('cached_summary') || JSON.stringify({ total: 0, count: 0, byType: {}, cancelled: 0 }));
+  }
+  try {
+    const summary = await api.get('/sales.php?summary=1');
+    localStorage.setItem('cached_summary', JSON.stringify(summary));
+    return summary;
+  } catch {
+    return JSON.parse(localStorage.getItem('cached_summary') || JSON.stringify({ total: 0, count: 0, byType: {}, cancelled: 0 }));
+  }
 };
 
 // ─── Configuración de la app ──────────────────────────────────
 
 export const getSettings = async () => {
+  if (!isOnline()) {
+    return JSON.parse(localStorage.getItem('cached_settings') || JSON.stringify({
+      businessName: 'Amaranto', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
+      appStatus: 'active', appDisableAt: 'never', isBlocked: false,
+      carousel_images: '[]'
+    }));
+  }
   try {
     const { settings } = await api.get('/settings.php');
-    return {
-      businessName: settings.businessName || 'Rifas Express',
-      currency:     settings.currency     || 'NIO',
-      autoprint:    settings.autoprint === 'true',
+    const result = {
+      businessName:     settings.businessName || 'Amaranto',
+      currency:         settings.currency     || 'NIO',
+      autoprint:        settings.autoprint === 'true',
       drawCloseMinutes: Number(settings.drawCloseMinutes || 10),
+      appStatus:        settings.appStatus    ?? 'active',
+      appDisableAt:     settings.appDisableAt ?? 'never',
+      isBlocked:        settings.isBlocked    === true || settings.isBlocked === 'true',
+      carousel_images:  settings.carousel_images || '[]',
     };
+    localStorage.setItem('cached_settings', JSON.stringify(result));
+    return result;
   } catch {
-    // Fallback si la API no está disponible
-    return { businessName: 'Rifas Express', currency: 'NIO', autoprint: true, drawCloseMinutes: 10 };
+    return JSON.parse(localStorage.getItem('cached_settings') || JSON.stringify({
+      businessName: 'Amaranto', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
+      appStatus: 'active', appDisableAt: 'never', isBlocked: false,
+      carousel_images: '[]'
+    }));
   }
 };
 
 export const saveSettings = async (settings) => {
-  // autoprint se convierte a string para la BD
+  if (!isOnline()) {
+    throw new Error('No se puede guardar la configuración en modo offline.');
+  }
   const payload = {
     ...settings,
     autoprint: String(settings.autoprint ?? true),
     drawCloseMinutes: String(settings.drawCloseMinutes ?? 10),
   };
   await api.put('/settings.php', payload);
+  localStorage.setItem('cached_settings', JSON.stringify(settings));
 };
 
 // ─── Resultados / Ganadores ───────────────────────────────────
 
 export const getResults = async () => {
-  const { results } = await api.get('/results.php');
-  return results;
+  if (!isOnline()) {
+    return JSON.parse(localStorage.getItem('cached_results') || '[]');
+  }
+  try {
+    const { results } = await api.get('/results.php');
+    const list = results || [];
+    localStorage.setItem('cached_results', JSON.stringify(list));
+    return list;
+  } catch {
+    return JSON.parse(localStorage.getItem('cached_results') || '[]');
+  }
 };
 
 export const announceResult = async (payload) => {
+  if (!isOnline()) {
+    // Modo offline
+    const queue = JSON.parse(localStorage.getItem('offline_results_queue') || '[]');
+    const tempId = `temp_res_${Date.now()}`;
+    
+    const mockResult = {
+      id: tempId,
+      lotteryId: payload.lotteryId,
+      fechaSorteo: payload.fechaSorteo || new Date().toISOString().split('T')[0],
+      numeroGanador: payload.numeroGanador,
+      horaSorteo: payload.horaSorteo || '12:00',
+      announcedBy: 'Admin Offline',
+      announcedAt: new Date().toISOString(),
+      isOffline: true
+    };
+    
+    queue.push({ id: tempId, data: payload });
+    localStorage.setItem('offline_results_queue', JSON.stringify(queue));
+    
+    // Guardar en cache local para listados offline
+    const cachedResults = JSON.parse(localStorage.getItem('cached_results') || '[]');
+    cachedResults.unshift(mockResult);
+    localStorage.setItem('cached_results', JSON.stringify(cachedResults));
+    
+    // Mostrar alerta nativa requerida por el usuario
+    alert("Los resultados anunciados en offline se cargarán luego al servidor cuando se conecte a la red.");
+    
+    return { result: mockResult, winners: [], isOffline: true };
+  }
+
+  // Modo online
   return await api.post('/results.php', payload);
 };
 
 export const deleteResult = async (id) => {
+  if (!isOnline()) {
+    throw new Error('No se pueden eliminar resultados en modo offline.');
+  }
   return await api.delete(`/results.php?id=${id}`);
 };
 
 export const checkWinners = async () => {
-  const { winners } = await api.get('/results.php?check=1');
-  return winners;
+  if (!isOnline()) {
+    return [];
+  }
+  try {
+    const { winners } = await api.get('/results.php?check=1');
+    return winners || [];
+  } catch {
+    return [];
+  }
+};
+
+// ─── Sincronización de Datos Offline ───────────────────────
+
+export const syncOfflineData = async (dispatch) => {
+  if (!isOnline()) return;
+
+  const salesQueue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
+  const resultsQueue = JSON.parse(localStorage.getItem('offline_results_queue') || '[]');
+
+  if (salesQueue.length === 0 && resultsQueue.length === 0) return;
+
+  let syncedSalesCount = 0;
+  let syncedResultsCount = 0;
+
+  // Sincronizar Ventas
+  const remainingSales = [];
+  for (const item of salesQueue) {
+    try {
+      const { sale } = await api.post('/sales.php', item.data);
+      syncedSalesCount++;
+      if (dispatch) {
+        dispatch({ type: 'SYNC_SALE', payload: { tempId: item.id, realSale: sale } });
+      }
+    } catch (err) {
+      console.error('[Sync] Error al sincronizar venta:', err);
+      // Se mantiene en la cola si es un error de conexión transitorio
+      remainingSales.push(item);
+    }
+  }
+  localStorage.setItem('offline_sales_queue', JSON.stringify(remainingSales));
+
+  // Sincronizar Resultados
+  const remainingResults = [];
+  for (const item of resultsQueue) {
+    try {
+      await api.post('/results.php', item.data);
+      syncedResultsCount++;
+    } catch (err) {
+      console.error('[Sync] Error al sincronizar resultado:', err);
+      remainingResults.push(item);
+    }
+  }
+  localStorage.setItem('offline_results_queue', JSON.stringify(remainingResults));
+
+  // Actualizar la cache local de ventas y resultados después de sincronizar con éxito
+  try {
+    if (syncedSalesCount > 0) {
+      const { sales } = await api.get('/sales.php');
+      if (sales) {
+        localStorage.setItem('cached_sales', JSON.stringify(sales));
+        if (dispatch) {
+          dispatch({ type: 'LOAD_SALES', payload: sales });
+        }
+      }
+    }
+    if (syncedResultsCount > 0) {
+      const { results } = await api.get('/results.php');
+      if (results) {
+        localStorage.setItem('cached_results', JSON.stringify(results));
+      }
+    }
+    
+    // Recargar resumen diario
+    const summary = await api.get('/sales.php?summary=1');
+    if (summary && dispatch) {
+      localStorage.setItem('cached_summary', JSON.stringify(summary));
+      dispatch({ type: 'SET_DAILY_SUMMARY', payload: summary });
+    }
+  } catch (refreshErr) {
+    console.error('[Sync] Error al refrescar datos sincronizados:', refreshErr);
+  }
+
+  // Notificar al usuario con toast
+  if (syncedSalesCount > 0 || syncedResultsCount > 0) {
+    let msg = 'Sincronización exitosa: ';
+    const parts = [];
+    if (syncedSalesCount > 0) parts.push(`${syncedSalesCount} venta(s)`);
+    if (syncedResultsCount > 0) parts.push(`${syncedResultsCount} resultado(s)`);
+    msg += parts.join(' y ') + ' subidos al servidor.';
+    toast.success(msg, { duration: 5000 });
+  }
 };

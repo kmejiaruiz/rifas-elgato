@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ─── Entorno y credenciales ───────────────────────────────────
+# NUNCA subir a Git
+api/.env.php

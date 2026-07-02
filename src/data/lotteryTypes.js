@@ -217,12 +217,14 @@ export const setDynamicLotteries = (configs) => {
         payoutMultiplier: dbCfg.payout_multiplier !== null ? parseFloat(dbCfg.payout_multiplier) : presets[key].payoutMultiplier,
         enabled:          Boolean(Number(dbCfg.enabled)),
         allowSeries:      Boolean(Number(dbCfg.allow_series ?? 0)),
+        allowMultiDraw:   Boolean(Number(dbCfg.allow_multi_draw ?? 0)),
         drawHours:        dbCfg.draw_hours        || '12:00,15:00,18:00,21:00',
         maxSalesPerNumber: dbCfg.max_sales_per_number !== null ? parseFloat(dbCfg.max_sales_per_number) : 0.00,
       };
     } else {
       presets[key].enabled = true;
       presets[key].allowSeries = false;
+      presets[key].allowMultiDraw = false;
       presets[key].drawHours = '12:00,15:00,18:00,21:00';
       presets[key].maxSalesPerNumber = 0.00;
     }
@@ -247,6 +249,7 @@ export const setDynamicLotteries = (configs) => {
         payoutMultiplier: parseFloat(dbCfg.payout_multiplier || 80.00),
         enabled:          Boolean(Number(dbCfg.enabled)),
         allowSeries:      Boolean(Number(dbCfg.allow_series ?? 0)),
+        allowMultiDraw:   Boolean(Number(dbCfg.allow_multi_draw ?? 0)),
         isCustom:         true,
         drawHours:        dbCfg.draw_hours        || '12:00,15:00,18:00,21:00',
         maxSalesPerNumber: dbCfg.max_sales_per_number !== null ? parseFloat(dbCfg.max_sales_per_number) : 0.00,

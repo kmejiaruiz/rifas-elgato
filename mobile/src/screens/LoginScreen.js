@@ -2,7 +2,7 @@
 // LoginScreen — Pantalla de Acceso Móvil
 // ============================================================
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ticket, LogIn, Server } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, setApiUrl } from '../services/apiService';
@@ -64,7 +64,7 @@ export const LoginScreen = () => {
           <View style={styles.logoBadge}>
             <Ticket size={40} color="#fff" />
           </View>
-          <Text style={styles.title}>Rifas Express</Text>
+          <Text style={styles.title}>Amaranto</Text>
           <Text style={styles.subtitle}>Inicie sesión para continuar</Text>
         </View>
 
@@ -142,7 +142,7 @@ export const LoginScreen = () => {
   );
 };
 
-import { TouchableOpacity as RNTouchableOpacity } from 'react-native';
+
 
 const styles = StyleSheet.create({
   container: {

@@ -16,7 +16,18 @@ import { TicketVoucher } from '../components/ticket/TicketVoucher';
 
 const formatHourAmPm = (hourStr) => {
   if (!hourStr) return '';
-  const [h, m] = hourStr.split(':').map(Number);
+  let str = String(hourStr).trim().toLowerCase();
+  str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+  let h = 0, m = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    h = Number(parts[0]);
+    m = Number(parts[1]);
+  } else {
+    h = Number(str);
+    m = 0;
+  }
+  if (isNaN(h) || isNaN(m)) return hourStr;
   const ampm = h >= 12 ? 'PM' : 'AM';
   const displayH = h % 12 || 12;
   const displayM = String(m).padStart(2, '0');
@@ -345,6 +356,26 @@ export const SalesHistory = () => {
               return acc + (parseFloat(l.monto || 0) * mult);
             }, 0);
 
+            // Range formatting for web history
+            const isFechea = sale.lotteryId === 'fechea';
+            let rangeText = '';
+            let rangeCount = lines.length;
+            let unitMonto = parseFloat(lines[0]?.monto || 0);
+
+            if (isFechea) {
+              rangeText = `${lines.length} Fechas`;
+            } else {
+              const nums = lines.map(l => parseInt(l.numero, 10)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+              if (nums.length > 0) {
+                const firstNum = nums[0];
+                const lastNum = nums[nums.length - 1];
+                rangeCount = lastNum - firstNum + 1;
+                rangeText = `De ${formatLotteryNumber(sale.lotteryId, firstNum)} a ${formatLotteryNumber(sale.lotteryId, lastNum)}`;
+              } else {
+                rangeText = `${lines.length} números`;
+              }
+            }
+
             return (
               <div key={sale.id} className="card"
                 style={{ padding: '0.85rem 1rem', opacity: isCancelled ? 0.65 : 1,
@@ -412,39 +443,56 @@ export const SalesHistory = () => {
                   <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', animation: 'fadeIn 0.2s ease' }}>
 
                     {/* Tabla de jugadas */}
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto',
-                        gap: '0.2rem 0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)',
-                        fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                        paddingBottom: '0.3rem', borderBottom: '1px solid var(--border)', marginBottom: '0.3rem' }}>
-                        <span>{sale.lotteryId === 'fechea' ? 'Fecha' : 'Número'}</span><span>Fecha</span><span>Monto</span>
-                      </div>
-                      {lines.map((line, i) => (
-                        <div key={line.id ?? i} style={{ display: 'grid',
-                          gridTemplateColumns: '1fr auto auto', gap: '0.2rem 0.75rem',
-                          padding: '0.35rem 0', borderBottom: '1px solid var(--border)',
-                          fontSize: '0.88rem',
-                          background: line.status === 'winner' ? 'rgba(251,191,36,0.05)' : undefined }}>
-                          <span style={{ fontWeight: 800, color: line.status === 'winner' ? 'var(--neon-yellow)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            {line.status === 'winner' && <Trophy size={12} color="var(--neon-yellow)" />}
-                            {sale.lotteryId === 'fechea' ? formatFecheaDate(getFecheaPlayValue(line)) : `#${formatLotteryNumber(sale.lotteryId, line.numero)}`}
-                          </span>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                            {line.fecha && sale.lotteryId !== 'fechea' ? line.fecha : '—'}
-                          </span>
-                          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--neon-green)', fontSize: '0.85rem' }}>
-                              {lottery?.priceLabel}{parseFloat(line.monto || 0).toFixed(2)}
-                            </span>
-                            {line.status === 'winner' && (
-                              <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--neon-yellow)', marginTop: 2 }}>
-                                Ganó: {lottery?.priceLabel || 'NIO '}{parseFloat(line.monto * (lottery?.payoutMultiplier || 80)).toFixed(2)}
-                              </span>
-                            )}
-                          </span>
+                    {lines.length > 6 ? (
+                      <div className="card" style={{ padding: '0.85rem 1rem', marginBottom: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>RANGO</span>
+                          <span style={{ fontWeight: 800, color: 'var(--neon-yellow)' }}>{rangeText}</span>
                         </div>
-                      ))}
-                    </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>CANT. NÚMEROS</span>
+                          <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{rangeCount}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>MONTO POR NÚMERO</span>
+                          <span style={{ fontWeight: 800, color: 'var(--neon-green)' }}>{lottery?.priceLabel || 'NIO '}{unitMonto.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto',
+                          gap: '0.2rem 0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)',
+                          fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                          paddingBottom: '0.3rem', borderBottom: '1px solid var(--border)', marginBottom: '0.3rem' }}>
+                          <span>{sale.lotteryId === 'fechea' ? 'Fecha' : 'Número'}</span><span>Fecha</span><span>Monto</span>
+                        </div>
+                        {lines.map((line, i) => (
+                          <div key={line.id ?? i} style={{ display: 'grid',
+                            gridTemplateColumns: '1fr auto auto', gap: '0.2rem 0.75rem',
+                            padding: '0.35rem 0', borderBottom: '1px solid var(--border)',
+                            fontSize: '0.88rem',
+                            background: line.status === 'winner' ? 'rgba(251,191,36,0.05)' : undefined }}>
+                            <span style={{ fontWeight: 800, color: line.status === 'winner' ? 'var(--neon-yellow)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {line.status === 'winner' && <Trophy size={12} color="var(--neon-yellow)" />}
+                              {sale.lotteryId === 'fechea' ? formatFecheaDate(getFecheaPlayValue(line)) : `#${formatLotteryNumber(sale.lotteryId, line.numero)}`}
+                            </span>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                              {line.fecha && sale.lotteryId !== 'fechea' ? line.fecha : '—'}
+                            </span>
+                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                              <span style={{ fontWeight: 700, color: 'var(--neon-green)', fontSize: '0.85rem' }}>
+                                {lottery?.priceLabel}{parseFloat(line.monto || 0).toFixed(2)}
+                              </span>
+                              {line.status === 'winner' && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--neon-yellow)', marginTop: 2 }}>
+                                  Ganó: {lottery?.priceLabel || 'NIO '}{parseFloat(line.monto * (lottery?.payoutMultiplier || 80)).toFixed(2)}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Info adicional */}
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>

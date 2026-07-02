@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Rifas Express",
-    "slug": "rifas-express-mobile",
+    "name": "Amaranto Mobile",
+    "slug": "amaranto-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,9 +14,26 @@
       "supportsTablet": true
     },
     "android": {
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0b0f19"
+      },
+      "package": "com.klmejia.amarantomobile"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e6c6bdf8-4d48-414b-b247-4d045cfc6737"
       }
-    }
+    },
+    "owner": "klmejia",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

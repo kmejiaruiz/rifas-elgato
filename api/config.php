@@ -1,9 +1,18 @@
 <?php
-// ─── Configuración de base de datos ──────────────────────────
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'rifas_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+// ─── Cargar configuración de entorno ────────────────────────────────────────
+if (!file_exists(__DIR__ . '/.env.php')) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuración de entorno no encontrada. Crea el archivo api/.env.php'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+require_once __DIR__ . '/.env.php';
+
+// ─── Constantes derivadas del entorno ──────────────────────────────────
+define('DB_HOST',     ENV_DB_HOST);
+define('DB_NAME',     ENV_DB_NAME);
+define('DB_USER',     ENV_DB_USER);
+define('DB_PASS',     ENV_DB_PASS);
+define('CSRF_SECRET', ENV_CSRF_SECRET);
 
 function getDB(): PDO {
     static $pdo = null;
@@ -33,7 +42,7 @@ function initSchema(PDO $db): void {
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(100) NOT NULL,
-        role ENUM('admin','vendedor') NOT NULL DEFAULT 'vendedor',
+        role ENUM('admin','vendedor','root') NOT NULL DEFAULT 'vendedor',
         active TINYINT(1) NOT NULL DEFAULT 1,
         salary_type ENUM('fixed', 'percentage') NOT NULL DEFAULT 'percentage',
         salary_value DECIMAL(10,2) NOT NULL DEFAULT 10.00,
@@ -89,6 +98,15 @@ function initSchema(PDO $db): void {
         notified TINYINT(1) NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $db->exec("CREATE TABLE IF NOT EXISTS notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(36) NULL,
+        title VARCHAR(150) NOT NULL,
+        message TEXT NOT NULL,
+        read_status TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $db->exec("CREATE TABLE IF NOT EXISTS game_configs (
         lottery_id VARCHAR(50) PRIMARY KEY,
         enabled TINYINT(1) NOT NULL DEFAULT 1,
@@ -129,6 +147,19 @@ function initSchema(PDO $db): void {
         PRIMARY KEY (ip_address)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $db->exec("CREATE TABLE IF NOT EXISTS audit_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(36),
+        action VARCHAR(100) NOT NULL,
+        details JSON,
+        ip_address VARCHAR(45),
+        user_agent VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user (user_id),
+        INDEX idx_action (action),
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     // Usuarios por defecto
     $count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
     if ($count == 0) {
@@ -139,10 +170,12 @@ function initSchema(PDO $db): void {
 
     // Settings por defecto
     $db->exec("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES
-        ('businessName','Rifas Express'),
+        ('businessName','Amaranto'),
         ('currency','NIO'),
         ('autoprint','true'),
-        ('drawCloseMinutes','10')
+        ('drawCloseMinutes','10'),
+        ('appStatus','active'),
+        ('appDisableAt','never')
     ");
 
     // Migrar esquemas anteriores
@@ -152,9 +185,37 @@ function initSchema(PDO $db): void {
     migrateGameConfigsSchema($db);
     migrateSalesCancelledBy($db);
     migrateUsersSalarySchema($db);
+    migrateUsersSalaryPeriod($db);
     migrateSalesPrizePaid($db);
     migrateSalesHoraSorteo($db);
     migrateResultsHoraSorteo($db);
+    migrateUsersRoleRoot($db);
+    migrateAppStatusSettings($db);
+}
+
+/**
+ * Agrega columnas de periodo de salario y crea tabla de pagos de salarios.
+ */
+function migrateUsersSalaryPeriod(PDO $db): void {
+    try {
+        $cols = array_column($db->query("SHOW COLUMNS FROM users")->fetchAll(), 'Field');
+        if (!in_array('salary_period', $cols)) {
+            $db->exec("ALTER TABLE users ADD COLUMN salary_period ENUM('daily', 'weekly', 'fortnightly', 'monthly') NOT NULL DEFAULT 'daily'");
+        }
+        
+        $db->exec("CREATE TABLE IF NOT EXISTS salary_payments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            seller_id VARCHAR(36) NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            total_sold DECIMAL(10,2) NOT NULL,
+            prizes_total DECIMAL(10,2) NOT NULL,
+            commission_amount DECIMAL(10,2) NOT NULL,
+            net_salary DECIMAL(10,2) NOT NULL,
+            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (\Exception $e) { /* Silencioso */ }
 }
 
 /**
@@ -313,6 +374,31 @@ function genUUID(): string {
         mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),
         mt_rand(0,0x0fff)|0x4000, mt_rand(0,0x3fff)|0x8000,
         mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff));
+}
+
+/**
+ * Migra el ENUM de roles de users para incluir 'root' si no existe.
+ */
+function migrateUsersRoleRoot(PDO $db): void {
+    try {
+        // Leer definición actual de la columna role
+        $row = $db->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
+        if ($row && strpos($row['Type'], "'root'") === false) {
+            $db->exec("ALTER TABLE users MODIFY role ENUM('admin','vendedor','root') NOT NULL DEFAULT 'vendedor'");
+        }
+    } catch (\Exception $e) { /* Silencioso */ }
+}
+
+/**
+ * Asegura que existan los settings de control de disponibilidad de la app.
+ */
+function migrateAppStatusSettings(PDO $db): void {
+    try {
+        $db->exec("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES
+            ('appStatus','active'),
+            ('appDisableAt','never')
+        ");
+    } catch (\Exception $e) { /* Silencioso */ }
 }
 
 /**

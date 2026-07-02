@@ -12,6 +12,11 @@ if ($method === 'GET') {
     $rows = $db->query("SELECT `key`, `value` FROM app_settings")->fetchAll();
     $settings = [];
     foreach ($rows as $r) $settings[$r['key']] = $r['value'];
+    // Evaluar si la app está bloqueada por timer expirado
+    $appStatusData = getAppStatus();
+    $settings['appStatus']    = $appStatusData['status'];
+    $settings['appDisableAt'] = $appStatusData['disableAt'];
+    $settings['isBlocked']    = $appStatusData['isBlocked'];
     ok(['settings' => $settings]);
 }
 
@@ -20,7 +25,7 @@ if ($method === 'PUT') {
     $b = body();
     
     // Lista blanca de configuraciones válidas para evitar contaminación o inserciones maliciosas
-    $allowedKeys = ['businessName', 'currency', 'autoprint', 'drawCloseMinutes'];
+    $allowedKeys = ['businessName', 'currency', 'autoprint', 'drawCloseMinutes', 'carousel_images'];
     
     $st = $db->prepare("INSERT INTO app_settings (`key`,`value`) VALUES (?,?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
     foreach ($b as $key => $value) {

@@ -1,18 +1,27 @@
 // ============================================================
 // Cliente HTTP para la API PHP/MySQL
-// Maneja token Bearer, errores y redirección por sesión expirada
+// Maneja token Bearer, CSRF, errores y redirección por sesión expirada
 // ============================================================
 
 const TOKEN_KEY = 'rifas_token';
 
-export const getToken  = () => localStorage.getItem(TOKEN_KEY);
-export const setToken  = (t) => localStorage.setItem(TOKEN_KEY, t);
+export const getToken   = () => localStorage.getItem(TOKEN_KEY);
+export const setToken   = (t) => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+// Returns the base origin for constructing asset URLs (e.g. /uploads/carousel_xxx.jpg)
+export const getApiUrl  = () => window.location.origin;
+
 
 const request = async (method, path, body = null) => {
   const headers = { 'Content-Type': 'application/json' };
+
+  // Adjuntar Bearer token
   const token = getToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['X-Auth-Token'] = token; // fallback para FastCGI (InfinityFree elimina Authorization)
+  }
 
   const opts = { method, headers };
   if (body !== null) opts.body = JSON.stringify(body);
@@ -26,7 +35,7 @@ const request = async (method, path, body = null) => {
     throw new Error('Sin conexión con el servidor. Verifica que el backend esté activo.');
   }
 
-  // Token expirado → limpiar sesión solo si ya había sesión activa
+  // Token expirado → limpiar sesión
   if (res.status === 401) {
     const data401 = await res.json().catch(() => ({}));
     const hadToken = !!getToken();
@@ -37,7 +46,18 @@ const request = async (method, path, body = null) => {
     throw new Error(data401.error || 'Sesión expirada. Inicia sesión nuevamente.');
   }
 
-  const data = await res.json().catch(() => ({}));
+
+  let data = {};
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json().catch(() => ({}));
+  } else {
+    const text = await res.text().catch(() => '');
+    if (text.includes('Cookies are not enabled') || text.includes('__test')) {
+      throw new Error('El sistema de seguridad del hosting está bloqueando la conexión. Por favor, recarga la página.');
+    }
+    throw new Error(`Respuesta inválida del servidor (formato no JSON: ${res.status}).`);
+  }
 
   if (!res.ok) {
     throw new Error(data.error || `Error ${res.status}`);

@@ -1,124 +1,442 @@
 // ============================================================
 // printerService — Formateador y Servicio de Impresión Móvil
-// Totalmente optimizado para Impresoras Térmicas de 80mm (48 caracteres)
+// Compatible con impresoras térmicas Bluetooth (Classic + BLE) vía Web Bluetooth API
 // ============================================================
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import { getLotteryById, formatLotteryNumber } from '../data/lotteryTypes';
+import { formatHourAmPm } from './gameService';
 
-const PAGE_WIDTH = 48; // Límite estándar para impresoras de 80mm (Font A)
-
-// Auxiliar para centrar texto
-const centerText = (text) => {
-  if (!text) return '';
-  const str = String(text);
-  if (str.length >= PAGE_WIDTH) return str.substring(0, PAGE_WIDTH);
-  const leftPadding = Math.floor((PAGE_WIDTH - str.length) / 2);
-  return ' '.repeat(leftPadding) + str;
+// ─── Helpers para Fechas y Sorteos ─────────────────────────────
+const getFecheaPlayValue = (line) => {
+  if (!line) return '';
+  if (line.numero && typeof line.numero === 'string' && line.numero.includes('/')) {
+    return line.numero;
+  }
+  if (line.fecha && typeof line.fecha === 'string' && line.fecha.includes('/')) {
+    return line.fecha;
+  }
+  return line.numero || '';
 };
 
-// Auxiliar para crear una fila con dos columnas alineadas a los extremos
-const formatRowBetween = (left, right) => {
-  const lStr = String(left || '');
-  const rStr = String(right || '');
-  const spaceNeeded = PAGE_WIDTH - lStr.length - rStr.length;
-  if (spaceNeeded <= 0) return lStr + ' ' + rStr;
-  return lStr + ' '.repeat(spaceNeeded) + rStr;
+const formatFecheaDate = (str) => {
+  if (!str || typeof str !== 'string') return '—';
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const parts = str.split('/');
+  if (parts.length === 2) {
+    const m = parseInt(parts[1], 10);
+    return `${parts[0]} ${months[(m - 1)] || parts[1]}`;
+  }
+  return str;
 };
 
-// Auxiliar para formatear filas con columnas específicas (alineación tabular)
-// 80mm: NUM (6) + MOD (12) + DETALLE (18) + MONTO (12) = 48 chars
-const formatPlayLine = (num, mod, details, amount) => {
-  const cNum = String(num || '').padEnd(8, ' ');
-  const cMod = String(mod || 'Regular').padEnd(12, ' ');
-  const cDet = String(details || '').padEnd(16, ' ');
-  const cAmt = String(amount || '0.00').padStart(12, ' ');
-  return cNum + cMod + cDet + cAmt;
+const formatDrawDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+  }
+  return dateStr;
 };
 
+const getDrawHoursText = (sale) => {
+  if (sale.multiHours && Array.isArray(sale.multiHours) && sale.multiHours.length > 0) {
+    return sale.multiHours.map(formatHourAmPm).join(', ');
+  }
+  const hr = sale.horaSorteo || sale.hora_sorteo || sale.sorteo;
+  return hr ? formatHourAmPm(hr) : '';
+};
+
+// Dynamic load of native printer module to prevent crash in Expo Go
+let NativeBLEPrinter = null;
+if (Platform.OS !== 'web') {
+  try {
+    const PrinterPkg = require('react-native-thermal-receipt-printer');
+    NativeBLEPrinter = PrinterPkg.BLEPrinter;
+  } catch (e) {
+    console.log('[PrinterService] Native bluetooth printing library not available. Using web Bluetooth fallback.');
+  }
+}
+
+// ─── Constantes ESC/POS ──────────────────────────────────────
+const ESC = 0x1b;
+const GS = 0x1d;
+const INIT = [ESC, 0x40];                       // Inicializar impresora
+const ALIGN_CENTER = [ESC, 0x61, 0x01];         // Centrar texto
+const ALIGN_LEFT = [ESC, 0x61, 0x00];           // Alinear izquierda
+const BOLD_ON = [ESC, 0x45, 0x01];              // Negrita ON
+const BOLD_OFF = [ESC, 0x45, 0x00];             // Negrita OFF
+const FONT_BIG = [GS, 0x21, 0x11];              // Texto 2x grande
+const FONT_NORMAL = [GS, 0x21, 0x00];           // Texto normal
+const CUT = [GS, 0x56, 0x41, 0x10];             // Cortar papel
+const LINE_FEED = [0x0a];                         // Nueva línea
+const DOTS_WIDTH_48 = 48;                         // Caracteres por línea (80mm)
+
+// ─── Perfil de servicio BLE (UUID genérico para impresoras térmicas) ───
+const THERMAL_PRINTER_SERVICE = 0x18f0;
+const THERMAL_PRINTER_CHARACTERISTIC = 0x2af1;
+
+// ─── Estado del módulo ──────────────────────────────────────
+let _device = null;
+let _characteristic = null;
+let _connected = false;
+
+// Helper para convertir texto a bytes
+const textToBytes = (text) => {
+  const encoder = new TextEncoder();
+  return Array.from(encoder.encode(text));
+};
+
+const line = (text = '') => [...textToBytes(text), ...LINE_FEED];
+
+const divider = (char = '-') => line(char.repeat(DOTS_WIDTH_48));
+
+const paddedLine = (left, right, width = DOTS_WIDTH_48) => {
+  const space = width - left.length - right.length;
+  return line(left + ' '.repeat(Math.max(1, space)) + right);
+};
+
+// ─── Formateo del boleto para impresión binaria ───────────────────
+const buildTicketBytes = (sale, settings) => {
+  const lotteryId = sale.lotteryId || sale.lottery_id;
+  const lottery = getLotteryById(lotteryId);
+  if (!lottery) throw new Error('Tipo de rifa inválido');
+
+  const businessName = settings.businessName || 'Amaranto';
+  const currency = settings.currency || 'NIO';
+
+  const bytes = [];
+  const push = (...cmds) => cmds.forEach((cmd) => bytes.push(...cmd));
+
+  // Parsear fecha
+  const dateObj = new Date(sale.createdAt || sale.created_at || Date.now());
+  const dateStr = dateObj.toLocaleDateString('es-ES') + ' ' + dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  // ─ Encabezado ─
+  push(
+    INIT,
+    ALIGN_CENTER,
+    BOLD_ON,
+    FONT_BIG,
+    line(businessName.toUpperCase()),
+    FONT_NORMAL,
+    BOLD_OFF,
+    line(lottery.name),
+    divider('='),
+    ALIGN_LEFT,
+  );
+
+  push(...paddedLine('Fecha venta:', dateStr));
+  push(...paddedLine('Fecha sorteo:', formatDrawDate(sale.lines?.[0]?.fecha || sale.drawDate)));
+  const drawHoursText = getDrawHoursText(sale);
+  if (drawHoursText) {
+    push(...paddedLine('Sorteo Hora:', drawHoursText));
+  }
+  if (sale.comprador) {
+    push(...paddedLine('Comprador:', sale.comprador));
+  }
+  push(...divider());
+
+  // ─ Jugadas ─
+  const lines = sale.lines || [];
+  if (lines.length > 10) {
+    // Boleto resumido por rango
+    let rangeTxt = '';
+    const unitM = parseFloat(lines[0]?.monto || 0);
+    const winM = unitM * parseFloat(lottery.payoutMultiplier || 80);
+    
+    if (lotteryId === 'fechea') {
+      rangeTxt = `${lines.length} Fechas`;
+    } else {
+      const nums = lines.map(l => parseInt(l.numero, 10)).filter(n => !isNaN(n)).sort((a,b)=>a-b);
+      if (nums.length > 0) {
+        rangeTxt = `De ${nums[0]} a ${nums[nums.length-1]}`;
+      } else {
+        rangeTxt = `${lines.length} numeros`;
+      }
+    }
+    
+    push(
+      ALIGN_CENTER,
+      BOLD_ON,
+      line('*** COMPRA EN RANGO / SERIE ***'),
+      LINE_FEED,
+      FONT_BIG,
+      line(rangeTxt),
+      FONT_NORMAL,
+      BOLD_OFF,
+      ALIGN_LEFT,
+      divider(),
+    );
+    push(...paddedLine('Cantidad de jugadas:', `${lines.length} numeros`));
+    push(...paddedLine('Inversion por numero:', `${currency} ${unitM.toFixed(2)}`));
+    push(BOLD_ON);
+    push(...paddedLine('PREMIO POR JUGADA GANADORA:', `${currency} ${winM.toFixed(2)}`));
+    push(BOLD_OFF, divider());
+    push(BOLD_ON);
+    push(...paddedLine('INVERSION TOTAL:', `${currency} ${parseFloat(sale.monto).toFixed(2)}`));
+    push(BOLD_OFF);
+  } else if (lines.length === 1) {
+    // Una sola jugada — mostrar grande
+    const l = lines[0];
+    push(ALIGN_CENTER, BOLD_ON, FONT_BIG);
+    if (lotteryId === 'fechea') {
+      push(...line(formatFecheaDate(getFecheaPlayValue(l))));
+    } else {
+      push(...line(`# ${formatLotteryNumber(lotteryId, l.numero)}`));
+    }
+    push(FONT_NORMAL, BOLD_OFF, ALIGN_LEFT);
+    if (l.modalidad) push(...paddedLine('Modalidad:', l.modalidad.toUpperCase()));
+    if (l.serie)     push(...paddedLine('Serie:', l.serie));
+    if (l.fraccion)  push(...paddedLine('Fracción:', String(l.fraccion)));
+    if (l.fecha && lotteryId !== 'fechea') push(...paddedLine('Sorteo:', l.fecha));
+    push(...divider());
+    push(BOLD_ON);
+    push(...paddedLine('MONTO:', `${currency} ${parseFloat(l.monto).toFixed(2)}`));
+    push(BOLD_OFF);
+  } else {
+    // Múltiples jugadas — listar
+    lines.forEach((l, i) => {
+      const numStr = lotteryId === 'fechea'
+        ? formatFecheaDate(getFecheaPlayValue(l))
+        : `#${formatLotteryNumber(lotteryId, l.numero)}`;
+      const montoStr = `${currency} ${parseFloat(l.monto).toFixed(2)}`;
+      const dateStr2 = (l.fecha && lotteryId !== 'fechea') ? ` (${l.fecha})` : '';
+      push(...paddedLine(`${i + 1}. ${numStr}${dateStr2}`, montoStr));
+    });
+    push(...divider());
+    push(BOLD_ON);
+    push(...paddedLine('TOTAL:', `${currency} ${parseFloat(sale.monto).toFixed(2)}`));
+    push(BOLD_OFF);
+  }
+
+  // ─ ID de venta y sello ─
+  push(...divider());
+  push(ALIGN_CENTER);
+  push(...line(`ID: ${sale.id?.split('_').pop()?.toUpperCase()}`));
+  push(...line('¡Buena suerte!'));
+
+  // ─ Corte ─
+  push(LINE_FEED, LINE_FEED, LINE_FEED, CUT);
+
+  return new Uint8Array(bytes.flat());
+};
+
+// Helper para convertir Uint8Array a Base64 de forma compatible con cualquier entorno
+const uint8ToBase64 = (arr) => {
+  let binary = '';
+  const len = arr.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(arr[i]);
+  }
+  return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(arr).toString('base64');
+};
+
+// ─── Conexión Bluetooth Web API y Nativo ───────────────────────
+export const connectPrinter = async () => {
+  if (Platform.OS !== 'web') {
+    if (NativeBLEPrinter) {
+      try {
+        await NativeBLEPrinter.init();
+        const devices = await NativeBLEPrinter.getDeviceList();
+        if (devices && devices.length > 0) {
+          const dev = devices[0];
+          await NativeBLEPrinter.connectPrinter(dev.inner_mac_address || dev.address);
+          _connected = true;
+          _device = {
+            name: dev.device_name || dev.name || 'Impresora térmica',
+            id: dev.inner_mac_address || dev.address,
+          };
+          return _device;
+        } else {
+          throw new Error('No se encontraron impresoras vinculadas en este teléfono.');
+        }
+      } catch (err) {
+        _connected = false;
+        throw new Error(`Error de Bluetooth nativo: ${err.message}`);
+      }
+    } else {
+      throw new Error(
+        'Expo Go no soporta Bluetooth nativo.\n\n' +
+        'Para probar la impresora en modo desarrollo:\n' +
+        '1. Ejecute la app en el navegador de su teléfono (Expo Web) usando Google Chrome.\n' +
+        '2. O genere una Build de Desarrollo / APK de producción de la app.'
+      );
+    }
+  }
+
+  if (typeof navigator === 'undefined' || !navigator.bluetooth) {
+    throw new Error('Este navegador o dispositivo no soporta Bluetooth Web API.');
+  }
+
+  try {
+    _device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [THERMAL_PRINTER_SERVICE, 'generic_attribute'],
+    });
+
+    _device.addEventListener('gattserverdisconnected', () => {
+      _connected = false;
+      _characteristic = null;
+      console.log('[Printer] Desconectado');
+    });
+
+    const server = await _device.gatt.connect();
+    
+    try {
+      const service = await server.getPrimaryService(THERMAL_PRINTER_SERVICE);
+      _characteristic = await service.getCharacteristic(THERMAL_PRINTER_CHARACTERISTIC);
+    } catch (err) {
+      console.warn('[Printer] No se pudo obtener característica estándar, usando modo raw:', err.message);
+      _characteristic = null;
+    }
+
+    _connected = true;
+
+    return {
+      name: _device.name || 'Impresora térmica',
+      id: _device.id,
+      connected: true,
+    };
+  } catch (err) {
+    _connected = false;
+    throw new Error(`No se pudo conectar: ${err.message}`);
+  }
+};
+
+export const disconnectPrinter = () => {
+  if (Platform.OS !== 'web' && NativeBLEPrinter) {
+    try {
+      NativeBLEPrinter.closeConn && NativeBLEPrinter.closeConn();
+    } catch (e) {}
+    _device = null;
+    _characteristic = null;
+    _connected = false;
+    return;
+  }
+
+  if (_device && _device.gatt.connected) {
+    _device.gatt.disconnect();
+  }
+  _device = null;
+  _characteristic = null;
+  _connected = false;
+};
+
+export const isPrinterConnected = () => _connected && _device !== null;
+
+export const getConnectedDevice = () =>
+  _device ? { name: _device.name || 'Impresora', id: _device.id } : null;
+
+// Envío en paquetes
+const CHUNK_SIZE = 512;
+const sendChunked = async (data) => {
+  if (!_characteristic) throw new Error('Impresora no conectada o sin característica disponible.');
+
+  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+    const chunk = data.slice(i, i + CHUNK_SIZE);
+    await _characteristic.writeValueWithoutResponse(chunk);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+};
+
+// Imprimir ticket de venta
+export const printTicket = async (sale, settings) => {
+  if (Platform.OS !== 'web' && NativeBLEPrinter) {
+    if (!_connected) throw new Error('No hay impresora conectada.');
+    const bytes = buildTicketBytes(sale, settings);
+    await NativeBLEPrinter.printRawData(uint8ToBase64(bytes));
+    return true;
+  }
+
+  if (!isPrinterConnected()) {
+    throw new Error('No hay impresora conectada.');
+  }
+
+  const bytes = buildTicketBytes(sale, settings);
+  await sendChunked(bytes);
+  return true;
+};
+
+// Imprimir página de prueba
+export const printTestPage = async () => {
+  const encoder = new TextEncoder();
+  const testText = [
+    ...Array.from([0x1b, 0x40]),          // INIT
+    ...Array.from([0x1b, 0x61, 0x01]),    // CENTER
+    ...Array.from(encoder.encode('=== PRUEBA DE IMPRESION ===')),
+    0x0a,
+    ...Array.from(encoder.encode('Conexion Exitosa ✓')),
+    0x0a,
+    ...Array.from(encoder.encode('Amaranto Movil')),
+    0x0a, 0x0a, 0x0a,
+    ...Array.from([0x1d, 0x56, 0x41, 0x10]), // CUT
+  ];
+
+  if (Platform.OS !== 'web' && NativeBLEPrinter) {
+    if (!_connected) throw new Error('No hay impresora conectada.');
+    await NativeBLEPrinter.printRawData(uint8ToBase64(new Uint8Array(testText)));
+    return;
+  }
+
+  if (!isPrinterConnected()) {
+    throw new Error('No hay impresora conectada.');
+  }
+
+  await sendChunked(new Uint8Array(testText));
+};
+
+// Formatear texto simple para vista previa en pantalla (Móvil)
 export const formatTicketText = (sale, settings) => {
   if (!sale) return '';
   const lines = [];
-
-  const business = settings.businessName || 'Rifas Express';
+  const business = settings.businessName || 'Amaranto';
   const currency = settings.currency || 'NIO';
 
-  // --- Cabecera ---
+  const centerText = (text) => {
+    if (!text) return '';
+    const str = String(text);
+    if (str.length >= DOTS_WIDTH_48) return str.substring(0, DOTS_WIDTH_48);
+    const leftPadding = Math.floor((DOTS_WIDTH_48 - str.length) / 2);
+    return ' '.repeat(leftPadding) + str;
+  };
+
+  const formatRowBetween = (left, right) => {
+    const lStr = String(left || '');
+    const rStr = String(right || '');
+    const spaceNeeded = DOTS_WIDTH_48 - lStr.length - rStr.length;
+    if (spaceNeeded <= 0) return lStr + ' ' + rStr;
+    return lStr + ' '.repeat(spaceNeeded) + rStr;
+  };
+
   lines.push(centerText('*** ' + business.toUpperCase() + ' ***'));
   lines.push(centerText('BOLETO DE LOTERIA'));
-  lines.push('-'.repeat(PAGE_WIDTH));
+  lines.push('-'.repeat(DOTS_WIDTH_48));
 
-  // --- Info del Boleto ---
-  lines.push(formatRowBetween(`Boleto ID: ${sale.id.substring(5, 17).toUpperCase()}`, `Fecha: ${new Date(sale.created_at).toLocaleDateString()}`));
-  lines.push(formatRowBetween(`Vendedor: ${sale.seller_name || 'Móvil'}`, `Hora: ${new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`));
-  lines.push(formatRowBetween(`Sorteo: ${sale.lottery_id.toUpperCase()}`, `Hora Sorteo: ${sale.hora_sorteo}`));
+  lines.push(formatRowBetween(`Boleto ID: ${sale.id?.split('_').pop()?.toUpperCase()}`, `Fecha Venta: ${new Date(sale.createdAt || sale.created_at).toLocaleDateString('es-ES')}`));
+  lines.push(formatRowBetween(`Fecha Sorteo: ${formatDrawDate(sale.lines?.[0]?.fecha || sale.drawDate)}`, ''));
+  lines.push(formatRowBetween(`Vendedor: ${sale.sellerName || 'Móvil'}`, `Hora: ${new Date(sale.createdAt || sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`));
+  const drawHoursText = getDrawHoursText(sale);
+  const game = getLotteryById(sale.lotteryId || sale.lottery_id) || {};
+  lines.push(formatRowBetween(`Sorteo: ${game.name || 'Rifa'}`, drawHoursText ? `Hora: ${drawHoursText}` : ''));
   if (sale.comprador) {
     lines.push(formatRowBetween(`Cliente: ${sale.comprador}`, ''));
   }
-  lines.push('='.repeat(PAGE_WIDTH));
+  lines.push('=').repeat(DOTS_WIDTH_48);
 
-  // --- Encabezados de Columna ---
-  lines.push(formatPlayLine('NÚMERO', 'MODALIDAD', 'DETALLES', 'MONTO'));
-  lines.push('-'.repeat(PAGE_WIDTH));
-
-  // --- Lista de Jugadas ---
+  // Lista jugadas
   const saleLines = sale.lines || [];
-  saleLines.forEach((ln) => {
-    let numStr = ln.numero;
-    if (sale.lottery_id === 'fechea') {
-      // Formatea fecha en ticket
-      numStr = ln.numero;
-    } else {
-      // Auto-pad
-      const digits = sale.lottery_id === 'la_tica' || sale.lottery_id === 'la_hondurena' ? 2 : (sale.lottery_id === 'juega3' ? 3 : 4);
-      numStr = String(ln.numero).padStart(digits, '0');
-    }
-
-    let detailStr = '';
-    if (ln.serie) detailStr += `S:${ln.serie} `;
-    if (ln.fraccion) detailStr += `F:${ln.fraccion} `;
-
-    lines.push(formatPlayLine(
-      numStr,
-      ln.modalidad || 'Normal',
-      detailStr.trim(),
-      `${currency} ${parseFloat(ln.monto).toFixed(2)}`
-    ));
+  saleLines.forEach((ln, idx) => {
+    const numStr = (sale.lotteryId || sale.lottery_id) === 'fechea'
+      ? formatFecheaDate(getFecheaPlayValue(ln))
+      : `#${formatLotteryNumber(sale.lotteryId || sale.lottery_id, ln.numero)}`;
+    lines.push(`${idx + 1}. ${numStr}  ${currency} ${parseFloat(ln.monto).toFixed(2)}`);
   });
 
-  lines.push('='.repeat(PAGE_WIDTH));
-
-  // --- Total ---
-  lines.push(formatRowBetween('CANTIDAD DE JUGADAS:', String(saleLines.length)));
+  lines.push('=').repeat(DOTS_WIDTH_48);
   lines.push(formatRowBetween('TOTAL A PAGAR:', `${currency} ${parseFloat(sale.monto).toFixed(2)}`));
-  lines.push('-'.repeat(PAGE_WIDTH));
-
-  // --- Pie de ticket ---
+  lines.push('-'.repeat(DOTS_WIDTH_48));
   lines.push(centerText('¡MUCHISIMA SUERTE!'));
-  lines.push(centerText('Revise su boleto. No se aceptan reclamos'));
-  lines.push(centerText('después de iniciado el sorteo.'));
-  lines.push(centerText('*** GRACIAS POR SU COMPRA ***'));
-  lines.push('\n\n\n'); // Espacio de corte
+  lines.push('\n\n\n');
 
   return lines.join('\n');
-};
-
-export const printTicket = async (sale, settings) => {
-  try {
-    const text = formatTicketText(sale, settings);
-    
-    // Simular la impresión en un dispositivo nativo.
-    // Esto se puede reemplazar en producción con comandos Bluetooth ESC/POS:
-    // Ex: BluetoothSerial.write(text);
-    
-    console.log('[Impresora 80mm]\n', text);
-    
-    Alert.alert(
-      'Impresión Exitosa (80mm)',
-      `El ticket del boleto se envió a la impresora térmica.\n\nContenido abreviado:\nTotal: ${settings.currency} ${parseFloat(sale.monto).toFixed(2)}\nLíneas: ${sale.lines?.length}`,
-      [{ text: 'OK' }]
-    );
-    return true;
-  } catch (err) {
-    Alert.alert('Error de Impresión', err.message);
-    return false;
-  }
 };

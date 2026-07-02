@@ -25,8 +25,8 @@ if ($method === 'PUT') {
 
     // Upsert
     $db->prepare("INSERT INTO game_configs 
-        (lottery_id, enabled, name, description, default_price, price_label, emoji, payout_multiplier, number_digits, min_number, max_number, is_custom, allow_series, draw_hours, max_sales_per_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (lottery_id, enabled, name, description, default_price, price_label, emoji, payout_multiplier, number_digits, min_number, max_number, is_custom, allow_series, draw_hours, max_sales_per_number, allow_multi_draw)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             enabled           = VALUES(enabled),
             name              = VALUES(name),
@@ -41,7 +41,8 @@ if ($method === 'PUT') {
             is_custom         = VALUES(is_custom),
             allow_series      = VALUES(allow_series),
             draw_hours        = VALUES(draw_hours),
-            max_sales_per_number = VALUES(max_sales_per_number)")
+            max_sales_per_number = VALUES(max_sales_per_number),
+            allow_multi_draw  = VALUES(allow_multi_draw)")
        ->execute([
            $id,
            isset($b['enabled']) ? ($b['enabled'] ? 1 : 0) : 1,
@@ -58,6 +59,7 @@ if ($method === 'PUT') {
            isset($b['allowSeries']) ? ($b['allowSeries'] ? 1 : 0) : 0,
            $b['drawHours']     ?? '12:00,15:00,18:00,21:00',
            isset($b['maxSalesPerNumber']) ? (float)$b['maxSalesPerNumber'] : 0.00,
+           isset($b['allowMultiDraw']) ? ($b['allowMultiDraw'] ? 1 : 0) : 0,
        ]);
 
     $st = $db->prepare("SELECT * FROM game_configs WHERE lottery_id = ?");

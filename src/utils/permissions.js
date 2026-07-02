@@ -4,6 +4,11 @@ export const can = (user, action) => {
   const perms = {
     admin:    ['sell','annul','viewHistory','manageGames','manageUsers','closeNumbers','settings'],
     vendedor: ['sell','annul','viewHistory','settings'],
+    // root solo puede controlar la disponibilidad — no opera la app
+    root:     ['rootControl'],
   };
   return (perms[user.role] || []).includes(action);
 };
+
+/** Verdadero si el usuario es superusuario root */
+export const isRoot = (user) => user?.role === 'root';

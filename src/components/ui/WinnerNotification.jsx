@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { getLotteryById, formatLotteryNumber } from '../../data/lotteryTypes';
-import { checkWinners } from '../../services/storageService';
+import { checkWinners, getResults } from '../../services/storageService';
 import { Trophy, X, Bell, Ticket } from 'lucide-react';
 
 const SEEN_KEY = 'rifas_seen_results';
@@ -64,6 +64,96 @@ export const WinnerNotification = () => {
     const interval = setInterval(check, 15 * 1000);
     return () => clearInterval(interval);
   }, [user, requestNotifPermission, sendBrowserNotif]);
+
+  // Polling de notificaciones de resultados para vendedores
+  useEffect(() => {
+    if (!user || user.role !== 'vendedor') return;
+
+    const checkAnnouncements = async () => {
+      try {
+        const results = await getResults();
+        if (!results || !results.length) return;
+
+        // Cargar vistos de localStorage
+        const seenAnnouncements = JSON.parse(localStorage.getItem('seen_result_announcements') || '[]');
+        
+        // Si es la primera vez que se carga y no hay nada en localStorage, inicializar con todos para evitar spam de notificaciones antiguas
+        if (seenAnnouncements.length === 0) {
+          const allIds = results.map(r => r.id);
+          localStorage.setItem('seen_result_announcements', JSON.stringify(allIds));
+          return;
+        }
+
+        const unseen = results.filter(r => !seenAnnouncements.includes(r.id));
+        if (!unseen.length) return;
+
+        // Mostrar notificación de navegador para cada nuevo resultado
+        if ('Notification' in window && Notification.permission === 'granted') {
+          unseen.forEach(r => {
+            const formatFecheaDate = (val) => {
+              if (!val) return '';
+              const parts = val.split('/');
+              if (parts.length === 2) {
+                const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                const mIdx = parseInt(parts[1], 10) - 1;
+                return `${parts[0]} de ${months[mIdx] || parts[1]}`;
+              }
+              return val;
+            };
+
+            const displayNum = r.lotteryId === 'fechea' ? formatFecheaDate(r.numeroGanador) : `#${r.numeroGanador}`;
+            
+            // Obtener el nombre legible de la lotería
+            const lottery = getLotteryById(r.lotteryId);
+            const lotteryName = lottery?.name || r.lotteryId;
+
+            // Formatear fecha del sorteo a dd/mm/yyyy
+            let displayDrawDate = r.fechaSorteo;
+            const dateParts = (r.fechaSorteo || '').split('-');
+            if (dateParts.length === 3) {
+              displayDrawDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+            }
+
+            const ampmFormat = (hourStr) => {
+              if (!hourStr) return '';
+              let str = String(hourStr).trim().toLowerCase();
+              str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+              let h = 0, m = 0;
+              if (str.includes(':')) {
+                const parts = str.split(':');
+                h = Number(parts[0]);
+                m = Number(parts[1]);
+              } else {
+                h = Number(str);
+                m = 0;
+              }
+              if (isNaN(h) || isNaN(m)) return hourStr;
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const displayH = h % 12 || 12;
+              const displayM = String(m).padStart(2, '0');
+              return `${displayH}:${displayM} ${ampm}`;
+            };
+
+            new Notification('📢 Nuevo Resultado Anunciado', {
+              body: `${lotteryName} · Número ${displayNum}\nSorteo: ${displayDrawDate} (${ampmFormat(r.horaSorteo)})`,
+              icon: '/favicon.ico',
+              tag: `result-${r.id}`,
+            });
+          });
+        }
+
+        // Marcar como vistos
+        const updated = [...new Set([...seenAnnouncements, ...unseen.map(r => r.id)])];
+        localStorage.setItem('seen_result_announcements', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Error checking result announcements:', err);
+      }
+    };
+
+    checkAnnouncements();
+    const interval = setInterval(checkAnnouncements, 12000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const dismiss = () => {
     markSeen(winners.map((w) => `${w.resultId}-${w.lineId}`));

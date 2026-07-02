@@ -1,15 +1,32 @@
 RewriteEngine On
 
-# Pasar el header Authorization a PHP (necesario en Apache/XAMPP)
+# ─── Pasar Authorization header a PHP ────────────────────────
+# Necesario en hostings compartidos que eliminan este header
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-# Permitir CORS preflight
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=REDIRECT_HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Compatibilidad con FastCGI / CGI en InfinityFree
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+# ─── CORS headers (únicamente en preflight OPTIONS de Apache) ─
+# Para las solicitudes normales, PHP maneja las cabeceras CORS para evitar duplicados.
+<IfModule mod_headers.c>
+    SetEnvIf Request_Method "OPTIONS" IS_OPTIONS
+    Header always set Access-Control-Allow-Origin "*" env=IS_OPTIONS
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" env=IS_OPTIONS
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Auth-Token, X-CSRF-Token, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers" env=IS_OPTIONS
+    Header always set Access-Control-Max-Age "86400" env=IS_OPTIONS
+</IfModule>
+
+# ─── CORS preflight ───────────────────────────────────────────
 RewriteCond %{REQUEST_METHOD} OPTIONS
 RewriteRule .* - [R=204,L]
 
-# Denegar el acceso directo a archivos de configuración y utilidades
-<FilesMatch "^(config\.php|helpers\.php)$">
+# ─── Bloquear acceso directo a archivos sensibles ─────────────
+<FilesMatch "^(config\.php|helpers\.php|\.env\.php|\.env\.example\.php)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

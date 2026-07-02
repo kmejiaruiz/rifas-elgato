@@ -318,37 +318,63 @@ if ($method === 'POST') {
 
     $totalMonto = array_sum(array_column($jugadas, 'monto'));
 
-    $saleId = 'sale_'.time().'_'.bin2hex(random_bytes(4));
+    // ─── Multi-sorteo: si viene multiHours[], crear un boleto por hora ──────
+    $multiHours = isset($b['multiHours']) && is_array($b['multiHours']) && count($b['multiHours']) > 1
+        ? array_map('trim', $b['multiHours'])
+        : null;
 
-    $db->prepare("INSERT INTO sales (id, lottery_id, comprador, monto, seller_id, seller_name, hora_sorteo)
-        VALUES (?,?,?,?,?,?,?)")
-       ->execute([$saleId, $lotteryId, $comprador ?: null, $totalMonto, $user['id'], $user['name'], $horaSorteo]);
+    $horasToProcess = $multiHours ?? [$horaSorteo];
+    $multiSaleId    = $multiHours ? 'multi_'.time().'_'.bin2hex(random_bytes(4)) : null;
 
+    $insSale = $db->prepare("INSERT INTO sales (id, lottery_id, comprador, monto, seller_id, seller_name, hora_sorteo, multi_sale_id)
+        VALUES (?,?,?,?,?,?,?,?)");
     $insLine = $db->prepare("INSERT INTO sale_lines
         (sale_id, lottery_id, numero, monto, fecha, modalidad, serie, fraccion)
         VALUES (?,?,?,?,?,?,?,?)");
 
-    foreach ($jugadas as $j) {
-        $isFechea = ($lotteryId === 'fechea');
-        $fecha = $isFechea ? $drawDate : (!empty($j['fecha']) ? $j['fecha'] : $drawDate);
-        $numero = $isFechea ? (string)($j['fecha'] ?? '') : (string)($j['numero'] ?? '');
-        $insLine->execute([
-            $saleId, $lotteryId,
-            $numero,
-            (float)$j['monto'],
-            $fecha,
-            $j['modalidad'] ?? null,
-            $j['serie']     ?? null,
-            isset($j['fraccion']) ? (int)$j['fraccion'] : null,
-        ]);
+    $createdIds = [];
+    foreach ($horasToProcess as $hora) {
+        // Validar que cada hora del multi-sorteo esté abierta (omitir las cerradas)
+        $drawDateTimeStr2 = $drawDate . ' ' . $hora . ':00';
+        $drawTime2        = strtotime($drawDateTimeStr2);
+        $closeLimitTime2  = $drawTime2 - ($drawCloseMinutes * 60);
+        if (time() >= $closeLimitTime2) continue; // hora ya cerrada, la saltamos
+
+        $saleId = 'sale_'.time().'_'.bin2hex(random_bytes(4));
+        $insSale->execute([$saleId, $lotteryId, $comprador ?: null, $totalMonto, $user['id'], $user['name'], $hora, $multiSaleId]);
+
+        foreach ($jugadas as $j) {
+            $isFechea = ($lotteryId === 'fechea');
+            $fecha    = $isFechea ? $drawDate : (!empty($j['fecha']) ? $j['fecha'] : $drawDate);
+            $numero   = $isFechea ? (string)($j['fecha'] ?? '') : (string)($j['numero'] ?? '');
+            $insLine->execute([
+                $saleId, $lotteryId,
+                $numero,
+                (float)$j['monto'],
+                $fecha,
+                $j['modalidad'] ?? null,
+                $j['serie']     ?? null,
+                isset($j['fraccion']) ? (int)$j['fraccion'] : null,
+            ]);
+        }
+        $createdIds[] = $saleId;
     }
 
-    $st = $db->prepare("SELECT * FROM sales WHERE id = ?");
-    $st->execute([$saleId]);
-    $sale = $st->fetch();
-    $linesMap = loadLines($db, [$saleId]);
+    if (empty($createdIds)) fail('Todos los sorteos seleccionados ya están cerrados.');
 
-    ok(['sale' => normalizeSale($sale, $linesMap[$saleId] ?? [])], 201);
+    $placeholders = implode(',', array_fill(0, count($createdIds), '?'));
+    $st = $db->prepare("SELECT * FROM sales WHERE id IN ($placeholders)");
+    $st->execute($createdIds);
+    $sales = $st->fetchAll();
+    $linesMap = loadLines($db, $createdIds);
+    $result   = array_map(fn($s) => normalizeSale($s, $linesMap[$s['id']] ?? []), $sales);
+
+    // Compatibilidad: si es venta simple devolver 'sale', si es multi devolver 'sales'
+    if (!$multiSaleId) {
+        ok(['sale' => $result[0]], 201);
+    } else {
+        ok(['sales' => $result, 'multiSaleId' => $multiSaleId], 201);
+    }
 }
 
 // ─── Anular boleto o Pagar Premio ────────────────────────────────────────────
@@ -380,6 +406,42 @@ if ($method === 'PUT') {
         }
 
         $db->prepare("UPDATE sales SET prize_paid = 1 WHERE id = ?")->execute([$id]);
+
+        // Registrar una notificación para los administradores
+        try {
+            $linesMap = loadLines($db, [$id]);
+            $lineList = $linesMap[$id] ?? [];
+            
+            // Obtener el payoutMultiplier para esta lotería
+            $lotQ = $db->prepare("SELECT name, payout_multiplier FROM game_configs WHERE lottery_id = ?");
+            $lotQ->execute([$sale['lottery_id']]);
+            $lotConfig = $lotQ->fetch();
+            $payoutMultiplier = (float)($lotConfig['payout_multiplier'] ?? 80.00);
+            $lotteryName = $lotConfig['name'] ?? $sale['lottery_id'];
+
+            $totalPrize = 0;
+            foreach ($lineList as $l) {
+                if ($l['status'] === 'winner') {
+                    $totalPrize += (float)$l['monto'] * $payoutMultiplier;
+                }
+            }
+
+            $currency = 'NIO ';
+            // Cargar moneda de settings
+            $setQ = $db->query("SELECT value FROM app_settings WHERE `key` = 'currency'");
+            if ($setQ) {
+                $currency = ($setQ->fetchColumn() ?: 'NIO') . ' ';
+            }
+
+            $whoPaid = $user['name'] . " (" . ($user['role'] === 'admin' ? 'Admin' : 'Vendedor') . ")";
+            $cleanId = strtoupper(substr($id, -6));
+            $msg = "El boleto #$cleanId ($lotteryName) fue pagado por $whoPaid. Monto pagado: " . $currency . number_format($totalPrize, 2);
+
+            $insNotif = $db->prepare("INSERT INTO notifications (user_id, title, message) VALUES (NULL, 'Premio Pagado', ?)");
+            $insNotif->execute([$msg]);
+        } catch (\Exception $e) {
+            // Silencioso para no romper el flujo principal si falla la notificación
+        }
 
         $st->execute([$id]);
         $linesMap = loadLines($db, [$id]);
@@ -444,6 +506,30 @@ if ($method === 'PUT') {
     $db->prepare("UPDATE sales SET status = 'cancelled', cancelled_at = NOW(), cancelled_by_name = ? WHERE id = ?")
        ->execute([$cancelledByName, $id]);
     $db->prepare("UPDATE sale_lines SET status = 'cancelled' WHERE sale_id = ?")->execute([$id]);
+
+    // Registrar una notificación para los administradores por anulación de boleto
+    try {
+        $lotQ = $db->prepare("SELECT name FROM game_configs WHERE lottery_id = ?");
+        $lotQ->execute([$sale['lottery_id']]);
+        $lotConfig = $lotQ->fetch();
+        $lotteryName = $lotConfig['name'] ?? $sale['lottery_id'];
+
+        $totalMonto = (float)$sale['monto'];
+
+        $currency = 'NIO ';
+        $setQ = $db->query("SELECT value FROM app_settings WHERE `key` = 'currency'");
+        if ($setQ) {
+            $currency = ($setQ->fetchColumn() ?: 'NIO') . ' ';
+        }
+
+        $cleanId = strtoupper(substr($id, -6));
+        $msg = "El boleto #$cleanId ($lotteryName) por " . $currency . number_format($totalMonto, 2) . " fue anulado por $cancelledByName.";
+
+        $insNotif = $db->prepare("INSERT INTO notifications (user_id, title, message) VALUES (NULL, 'Boleto Anulado', ?)");
+        $insNotif->execute([$msg]);
+    } catch (\Exception $e) {
+        // Silencioso
+    }
 
     $st->execute([$id]);
     $linesMap = loadLines($db, [$id]);

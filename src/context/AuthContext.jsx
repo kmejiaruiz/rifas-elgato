@@ -1,5 +1,6 @@
 // ============================================================
 // AuthContext — usa API PHP + MySQL para autenticación
+// Gestiona Bearer token + CSRF token en memoria
 // ============================================================
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { api, getToken, setToken, clearToken } from '../services/apiService';
@@ -9,8 +10,14 @@ const initialState = { user: null, loading: true };
 
 const reducer = (state, action) => {
   switch (action.type) {
-    case 'LOGIN':  return { user: action.payload, loading: false };
-    case 'LOGOUT': return { user: null,           loading: false };
+    case 'LOGIN':
+      if (action.payload) {
+        localStorage.setItem('rifas_user', JSON.stringify(action.payload));
+      }
+      return { user: action.payload, loading: false };
+    case 'LOGOUT':
+      localStorage.removeItem('rifas_user');
+      return { user: null,           loading: false };
     case 'LOADED': return { ...state,             loading: false };
     default: return state;
   }
@@ -26,10 +33,28 @@ export const AuthProvider = ({ children }) => {
     const restore = async () => {
       const token = getToken();
       if (!token) { dispatch({ type: 'LOADED' }); return; }
+      
+      // Si no hay red, usar cache directamente
+      if (!navigator.onLine) {
+        const cachedUser = localStorage.getItem('rifas_user');
+        if (cachedUser) {
+          dispatch({ type: 'LOGIN', payload: JSON.parse(cachedUser) });
+          return;
+        }
+      }
+
       try {
         const { user } = await api.get('/auth.php');
         dispatch({ type: 'LOGIN', payload: user });
-      } catch {
+      } catch (err) {
+        // En caso de fallar por conexión (sin internet)
+        if (!navigator.onLine || err.message?.includes('Sin conexión') || err.message?.includes('Failed to fetch')) {
+          const cachedUser = localStorage.getItem('rifas_user');
+          if (cachedUser) {
+            dispatch({ type: 'LOGIN', payload: JSON.parse(cachedUser) });
+            return;
+          }
+        }
         clearToken();
         dispatch({ type: 'LOADED' });
       }
@@ -37,12 +62,15 @@ export const AuthProvider = ({ children }) => {
     restore();
 
     // Escuchar evento de sesión expirada desde apiService
-    const onExpired = () => dispatch({ type: 'LOGOUT' });
+    const onExpired = () => {
+      dispatch({ type: 'LOGOUT' });
+    };
     window.addEventListener('rifas:session-expired', onExpired);
     return () => window.removeEventListener('rifas:session-expired', onExpired);
   }, []);
 
   const login = useCallback(async (username, password) => {
+    // POST /auth.php devuelve token + csrfToken + user
     const { token, user } = await api.post('/auth.php', { username, password });
     setToken(token);
     dispatch({ type: 'LOGIN', payload: user });

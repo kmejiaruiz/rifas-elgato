@@ -8,6 +8,7 @@ cors();
 $method = $_SERVER['REQUEST_METHOD'];
 $db     = getDB();
 
+
 // ─── Login ────────────────────────────────────────────────────
 if ($method === 'POST') {
     $b = body();
@@ -28,7 +29,6 @@ if ($method === 'POST') {
                 $timeLeft = ceil((900 - $timePassed) / 60);
                 fail("Demasiados intentos fallidos. Por seguridad, tu dirección IP ha sido bloqueada temporalmente. Inténtalo de nuevo en $timeLeft minuto(s).", 429);
             } else {
-                // Si ya expiró el tiempo de bloqueo, limpiar el registro para permitir reintentar
                 $db->prepare("DELETE FROM login_attempts WHERE ip_address = ?")->execute([$ip]);
             }
         }
@@ -43,15 +43,16 @@ if ($method === 'POST') {
             $db->prepare("INSERT INTO login_attempts (ip_address, attempts) VALUES (?, 1)
                 ON DUPLICATE KEY UPDATE attempts = attempts + 1, last_attempt = NOW()")->execute([$ip]);
         }
+        auditLog('login_failed', '', ['username' => $username]);
         fail('Usuario o contraseña incorrectos.', 401);
     }
 
-    // Limpiar intentos fallidos si el inicio de sesión es correcto
+    // Limpiar intentos fallidos
     if ($ip) {
         $db->prepare("DELETE FROM login_attempts WHERE ip_address = ?")->execute([$ip]);
     }
 
-    // Limpiar solo tokens EXPIRADOS del usuario (no todos)
+    // Limpiar tokens EXPIRADOS
     $db->prepare("DELETE FROM auth_tokens WHERE user_id = ? AND expires_at <= NOW()")->execute([$user['id']]);
 
     // Crear token (24 h)
@@ -59,18 +60,20 @@ if ($method === 'POST') {
     $db->prepare("INSERT INTO auth_tokens (token, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))")
        ->execute([$token, $user['id']]);
 
+    auditLog('login_success', $user['id'], ['username' => $user['username'], 'role' => $user['role']]);
     ok(['token' => $token, 'user' => safeUser($user)]);
 }
 
-// ─── Me ───────────────────────────────────────────────────────
+// ─── Me ───────────────────────────────────────────────────
 if ($method === 'GET') {
     $user = requireAuth();
     ok(['user' => safeUser($user)]);
 }
 
-// ─── Logout ───────────────────────────────────────────────────
+// ─── Logout ──────────────────────────────────────────────────
 if ($method === 'DELETE') {
-    $h = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    // Borrar el token de la BD (usar getAuthHeader que ya soporta cookie)
+    $h = getAuthHeader();
     if (str_starts_with($h, 'Bearer ')) {
         $token = substr($h, 7);
         $db->prepare("DELETE FROM auth_tokens WHERE token = ?")->execute([$token]);

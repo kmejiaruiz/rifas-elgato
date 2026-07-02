@@ -1,7 +1,7 @@
 // ============================================================
 // Contexto global de la app — ventas, resumen del día, settings
 // ============================================================
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
 import {
   getAllSales,
   saveSale,
@@ -10,6 +10,7 @@ import {
   getDailySummary,
   getSettings,
   saveSettings,
+  syncOfflineData,
 } from '../services/storageService';
 import toast from 'react-hot-toast';
 import { LOTTERY_LIST, setDynamicLotteries } from '../data/lotteryTypes';
@@ -20,7 +21,7 @@ const initialState = {
   sales: [],
   dailySummary: { total: 0, count: 0, byType: {}, cancelled: 0 },
   settings: {
-    businessName: 'Rifas Express',
+    businessName: 'Amaranto',
     printerName: null,
     currency: '₡',
     autoprint: true,
@@ -42,6 +43,11 @@ const reducer = (state, action) => {
       return {
         ...state,
         sales: state.sales.map((s) => (s.id === action.payload.id ? action.payload : s)),
+      };
+    case 'SYNC_SALE':
+      return {
+        ...state,
+        sales: state.sales.map((s) => (s.id === action.payload.tempId ? action.payload.realSale : s)),
       };
     case 'REMOVE_SALE':
       return { ...state, sales: state.sales.filter((s) => s.id !== action.payload) };
@@ -65,6 +71,35 @@ const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    const handlePrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      toast.success('¡Aplicación instalada con éxito!');
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handlePrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const installPwa = useCallback(async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  }, [deferredPrompt]);
 
   // Carga inicial — solo cuando hay sesión activa
   useEffect(() => {
@@ -86,6 +121,11 @@ export const AppProvider = ({ children }) => {
         dispatch({ type: 'SET_DAILY_SUMMARY', payload: summary });
         dispatch({ type: 'SET_SETTINGS', payload: settings });
         dispatch({ type: 'LOAD_LOTTERIES', payload: [...LOTTERY_LIST] });
+        
+        // Intentar sincronizar datos offline al iniciar si hay conexión
+        if (navigator.onLine) {
+          syncOfflineData(dispatch);
+        }
       } catch (err) {
         // Los errores 401 ya son manejados por apiService (evento session-expired)
         // Solo logueamos errores que no sean de auth
@@ -96,6 +136,15 @@ export const AppProvider = ({ children }) => {
       }
     };
     init();
+  }, []);
+
+  // Escuchar evento de volver a estar online para sincronización automática
+  useEffect(() => {
+    const handleOnline = () => {
+      syncOfflineData(dispatch);
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
   }, []);
 
   // Refresca el resumen del día — solo si hay token activo
@@ -131,7 +180,13 @@ export const AppProvider = ({ children }) => {
   const addSale = useCallback(async (saleData) => {
     try {
       const saved = await saveSale(saleData);
-      dispatch({ type: 'ADD_SALE', payload: saved });
+      if (saved && saved.sales && Array.isArray(saved.sales)) {
+        saved.sales.forEach(s => {
+          dispatch({ type: 'ADD_SALE', payload: s });
+        });
+      } else {
+        dispatch({ type: 'ADD_SALE', payload: saved });
+      }
       refreshSummary();
       return saved;
     } catch (err) {
@@ -199,6 +254,7 @@ export const AppProvider = ({ children }) => {
         selectLottery,
         refreshSummary,
         loadAllData,
+        installPwa: deferredPrompt ? installPwa : null,
       }}
     >
       {children}

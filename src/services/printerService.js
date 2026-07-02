@@ -22,6 +22,35 @@ const CUT = [GS, 0x56, 0x41, 0x10];             // Cortar papel
 const LINE_FEED = [0x0a];                         // Nueva línea
 const DOTS_WIDTH_48 = 48;                         // Caracteres por línea (58mm)
 
+const formatHourAmPm = (hourStr) => {
+  if (!hourStr) return '';
+  let str = String(hourStr).trim().toLowerCase();
+  str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+  let h = 0, m = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    h = Number(parts[0]);
+    m = Number(parts[1]);
+  } else {
+    h = Number(str);
+    m = 0;
+  }
+  if (isNaN(h) || isNaN(m)) return hourStr;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const displayH = h % 12 || 12;
+  const displayM = String(m).padStart(2, '0');
+  return `${displayH}:${displayM} ${ampm}`;
+};
+
+const getDrawHoursText = (sale) => {
+  if (sale.multiHours && Array.isArray(sale.multiHours) && sale.multiHours.length > 0) {
+    return sale.multiHours.map(formatHourAmPm).join(', ');
+  }
+  const hr = sale.horaSorteo || sale.hora_sorteo || sale.sorteo;
+  return hr ? formatHourAmPm(hr) : '';
+};
+
+
 // ─── Perfil de servicio BLE (UUID genérico para impresoras térmicas) ───
 const THERMAL_PRINTER_SERVICE = 0x18f0;
 const THERMAL_PRINTER_CHARACTERISTIC = 0x2af1;
@@ -54,7 +83,7 @@ const centerLine = (text) => {
 
 // ─── Formateo del boleto para impresión ──────────────────────
 
-const buildTicketBytes = (sale, businessName = 'Rifas Express') => {
+const buildTicketBytes = (sale, businessName = 'Amaranto') => {
   const lottery = getLotteryById(sale.lotteryId);
   if (!lottery) throw new Error('Tipo de rifa inválido');
 
@@ -73,7 +102,7 @@ const buildTicketBytes = (sale, businessName = 'Rifas Express') => {
     line(businessName),
     FONT_NORMAL,
     BOLD_OFF,
-    line(lottery.name),
+    line(lottery.name + (getDrawHoursText(sale) ? " (" + getDrawHoursText(sale) + ")" : "")),
     divider('='),
     ALIGN_LEFT,
   );
@@ -260,7 +289,7 @@ const sendChunked = async (data) => {
  * @param {Object} sale - Datos de la venta
  * @param {string} businessName - Nombre del negocio (aparece en el encabezado)
  */
-export const printTicket = async (sale, businessName = 'Rifas Express') => {
+export const printTicket = async (sale, businessName = 'Amaranto') => {
   if (!isPrinterConnected()) {
     throw new Error('No hay impresora conectada. Ve a Configuración > Impresora.');
   }
@@ -283,7 +312,7 @@ export const printTestPage = async () => {
     ...Array.from([0x1b, 0x61, 0x01]),    // CENTER
     ...Array.from(encoder.encode('=== PRUEBA DE IMPRESION ===')),
     0x0a,
-    ...Array.from(encoder.encode('Rifas Express')),
+    ...Array.from(encoder.encode('Amaranto')),
     0x0a,
     ...Array.from(encoder.encode('Impresora conectada OK')),
     0x0a, 0x0a, 0x0a,
@@ -299,7 +328,7 @@ export const printTestPage = async () => {
  * @param {string} businessName
  * @returns {string}
  */
-export const getTicketPreviewText = (sale, businessName = 'Rifas Express') => {
+export const getTicketPreviewText = (sale, businessName = 'Amaranto') => {
   const lottery = getLotteryById(sale.lotteryId);
   if (!lottery) return '';
 
@@ -309,7 +338,7 @@ export const getTicketPreviewText = (sale, businessName = 'Rifas Express') => {
   const lines = [
     '================================',
     `        ${businessName}`,
-    `    ${lottery.name}`,
+    `    ${lottery.name}${getDrawHoursText(sale) ? ` (${getDrawHoursText(sale)})` : ''}`,
     '================================',
   ];
 

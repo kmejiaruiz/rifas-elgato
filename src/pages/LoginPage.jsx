@@ -66,7 +66,7 @@ export const LoginPage = () => {
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: '0.25rem',
         }}>
-          Rifas Express
+          Amaranto
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Inicia sesión para continuar
@@ -149,38 +149,8 @@ export const LoginPage = () => {
             }
           </button>
         </form>
-
-        {/* Hint de credenciales */}
-        <div style={{
-          marginTop: '1.25rem', paddingTop: '1.25rem',
-          borderTop: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', gap: '0.3rem',
-        }}>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.3rem' }}>
-            Credenciales por defecto:
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}
-              onClick={() => { setUsername('admin'); setPassword('admin123'); }}
-              id="hint-admin-btn"
-            >
-              admin / admin123
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}
-              onClick={() => { setUsername('vendedor'); setPassword('1234'); }}
-              id="hint-vendedor-btn"
-            >
-              vendedor / 1234
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
 };
+

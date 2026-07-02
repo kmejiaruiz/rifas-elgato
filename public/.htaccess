@@ -13,3 +13,11 @@
   # Todo lo demás se redirige a index.html para que lo maneje React Router
   RewriteRule ^ index.html [L]
 </IfModule>
+
+# ─── CORS headers (siempre, incluso en preflight) ────────────
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Auth-Token, X-CSRF-Token, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+    Header always set Access-Control-Max-Age "86400"
+</IfModule>

@@ -9,28 +9,18 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/config.php';
 
 function cors(): void {
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if ($origin) {
-        $host = parse_url($origin, PHP_URL_HOST);
-        $serverHost = $_SERVER['HTTP_HOST'] ?? '';
-        // Obtener el nombre del host del servidor omitiendo el puerto si existe (ej: api.midominio.com:80 -> api.midominio.com)
-        $serverHostName = explode(':', $serverHost)[0];
-
-        // Permitir si es localhost, 127.0.0.1, si coincide con el host del propio servidor (producción) o si es IP local (LAN)
-        $isAllowed = ($host === 'localhost' || $host === '127.0.0.1' || 
-                      $host === $serverHostName ||
-                      filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false);
-        if ($isAllowed) {
-            header('Access-Control-Allow-Origin: ' . $origin);
-            header('Access-Control-Allow-Credentials: true');
-        } else {
-            // Denegar CORS devolviendo el host local por defecto
-            header('Access-Control-Allow-Origin: http://localhost');
-        }
-    }
+    // Access-Control-Allow-Origin, Allow-Methods y Allow-Headers
+    // se envían tanto en .htaccess como aquí en PHP como respaldo robusto.
+    header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token, X-CSRF-Token, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
     header('Content-Type: application/json; charset=utf-8');
+    // ─── Security Headers ──────────────────────────────────────────────
+    header('X-Frame-Options: DENY');
+    header('X-Content-Type-Options: nosniff');
+    header('X-XSS-Protection: 1; mode=block');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 }
 
@@ -54,14 +44,17 @@ function body(): array {
 }
 
 function getAuthHeader(): string {
-    // Apache puede pasar el header de varias formas
-    if (!empty($_SERVER['HTTP_AUTHORIZATION']))          return $_SERVER['HTTP_AUTHORIZATION'];
+    // 1. Header estándar — Apache normal
+    if (!empty($_SERVER['HTTP_AUTHORIZATION']))           return $_SERVER['HTTP_AUTHORIZATION'];
     if (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) return $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    // 2. Header alternativo X-Auth-Token — para FastCGI/InfinityFree que eliminan Authorization
+    if (!empty($_SERVER['HTTP_X_AUTH_TOKEN']))            return 'Bearer ' . $_SERVER['HTTP_X_AUTH_TOKEN'];
+    // 3. getallheaders() — búsqueda case-insensitive
     if (function_exists('getallheaders')) {
-        $headers = getallheaders();
-        // Case-insensitive search
-        foreach ($headers as $k => $v) {
-            if (strtolower($k) === 'authorization') return $v;
+        foreach (getallheaders() as $k => $v) {
+            $kl = strtolower($k);
+            if ($kl === 'authorization')  return $v;
+            if ($kl === 'x-auth-token')  return 'Bearer ' . $v;
         }
     }
     return '';
@@ -91,6 +84,83 @@ function requireAdmin(): array {
     return $u;
 }
 
+function requireRoot(): array {
+    $u = requireAuth();
+    if ($u['role'] !== 'root') fail('Acceso denegado: se requiere rol root.', 403);
+    return $u;
+}
+
+// ============================================================
+// ─── SEGURIDAD: Audit, Sanitización ──────────────────────────
+// ============================================================
+
+/**
+ * Registra una acción sensible en el audit_log.
+ * Silencioso en caso de error (no interrumpe el flujo principal).
+ */
+function auditLog(string $action, string $userId = '', array $data = []): void {
+    try {
+        $db = getDB();
+        $db->prepare(
+            "INSERT INTO audit_log (user_id, action, details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)"
+        )->execute([
+            $userId ?: null,
+            $action,
+            !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : null,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
+        ]);
+    } catch (\Exception $e) { /* Silencioso */ }
+}
+
+/**
+ * Sanitiza y limita la longitud de un string de entrada.
+ */
+function sanitizeInput(string $val, int $maxLen = 255): string {
+    return substr(trim(strip_tags($val)), 0, $maxLen);
+}
+
+/**
+ * Obtiene el estado actual de disponibilidad de la app desde app_settings.
+ * Retorna un array con:
+ *   - status: 'active' | 'disabled'
+ *   - disableAt: string ISO o 'never'
+ *   - isBlocked: bool (true si la app está desactivada o el timer expi ró)
+ */
+function getAppStatus(): array {
+    try {
+        $db = getDB();
+        $rows = $db->query("SELECT `key`, `value` FROM app_settings WHERE `key` IN ('appStatus','appDisableAt')")->fetchAll();
+        $map = [];
+        foreach ($rows as $r) $map[$r['key']] = $r['value'];
+
+        $status    = $map['appStatus']   ?? 'active';
+        $disableAt = $map['appDisableAt'] ?? 'never';
+
+        $isBlocked = false;
+        if ($status === 'disabled') {
+            $isBlocked = true;
+        } elseif ($disableAt !== 'never') {
+            // Verificar si el timer ya expiró
+            $ts = strtotime($disableAt);
+            if ($ts !== false && time() >= $ts) {
+                $isBlocked = true;
+                // Auto-marcar como disabled en la BD
+                $db->prepare("UPDATE app_settings SET `value`='disabled' WHERE `key`='appStatus'")->execute();
+                $db->prepare("UPDATE app_settings SET `value`='never' WHERE `key`='appDisableAt'")->execute();
+            }
+        }
+
+        return [
+            'status'    => $status,
+            'disableAt' => $disableAt,
+            'isBlocked' => $isBlocked,
+        ];
+    } catch (\Exception $e) {
+        return ['status' => 'active', 'disableAt' => 'never', 'isBlocked' => false];
+    }
+}
+
 function safeUser(array $u): array {
     unset($u['password_hash']);
     return $u;
@@ -114,6 +184,7 @@ function normalizeSale(array $s, array $lines = []): array {
         'createdAt'       => $s['created_at'],
         'cancelledAt'     => $s['cancelled_at'] ?? null,
         'cancelledByName' => $s['cancelled_by_name'] ?? null,
+        'multiSaleId'     => $s['multi_sale_id'] ?? null,
         'lines'           => array_map('normalizeLine', $lines),
     ];
 }
@@ -134,9 +205,20 @@ function normalizeLine(array $l): array {
 }
 
 function normalizeResult(array $r): array {
+    // Intentar obtener el nombre legible de la lotería desde game_configs
+    $lotteryName = $r['lottery_id'] ?? '';
+    try {
+        $db = getDB();
+        $gc = $db->prepare("SELECT name FROM game_configs WHERE lottery_id = ?");
+        $gc->execute([$r['lottery_id'] ?? '']);
+        $gcRow = $gc->fetch();
+        if ($gcRow && !empty($gcRow['name'])) $lotteryName = $gcRow['name'];
+    } catch (\Exception $e) { /* Silencioso */ }
+
     return [
         'id'            => (int)$r['id'],
         'lotteryId'     => $r['lottery_id'],
+        'lotteryName'   => $lotteryName,
         'fechaSorteo'   => $r['fecha_sorteo'],
         'numeroGanador' => $r['numero_ganador'],
         'horaSorteo'    => $r['hora_sorteo'] ?? '12:00',
@@ -144,6 +226,7 @@ function normalizeResult(array $r): array {
         'announcedAt'   => $r['announced_at'],
     ];
 }
+
 
 /**
  * Carga las jugadas de uno o varios boletos.

@@ -14,15 +14,22 @@ import {
   Shield, Users, Gamepad2, Hash, UserPlus, Trash2,
   ToggleLeft, ToggleRight, Lock, Unlock, Plus, X, Eye, EyeOff,
   Edit3, Save, ChevronDown, ChevronUp, Trophy, CheckCircle2,
-  DollarSign, RefreshCw, Settings2, Ticket, XCircle
+  DollarSign, RefreshCw, Settings2, Ticket, XCircle, Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDialog } from '../components/ui/DialogProvider';
 import { getLotteryById } from '../data/lotteryTypes';
 import { getResults, announceResult, deleteResult } from '../services/storageService';
 import { api } from '../services/apiService';
-import { DRAW_HOURS } from './SellTicket';
 import { formatFecheaDate } from '../utils/dateUtils';
+const formatDrawDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+  }
+  return dateStr;
+};
 
 // ─── Tabs del panel ──────────────────────────────────────────
 const TABS = [
@@ -103,6 +110,7 @@ const GamesTab = () => {
     minNumber: 0,
     maxNumber: 99,
     allowSeries: false,
+    allowMultiDraw: false,
     drawHours: '12:00,15:00,18:00,21:00',
     maxSalesPerNumber: 0.00,
   });
@@ -135,6 +143,7 @@ const GamesTab = () => {
       maxNumber:        game.numberRange?.max !== undefined ? game.numberRange.max : 99,
       isCustom:         game.isCustom || false,
       allowSeries:      game.allowSeries || false,
+      allowMultiDraw:   game.allowMultiDraw || false,
       drawHours:        game.drawHours || '12:00,15:00,18:00,21:00',
       maxSalesPerNumber: game.maxSalesPerNumber !== undefined ? game.maxSalesPerNumber : 0.00,
     });
@@ -153,6 +162,7 @@ const GamesTab = () => {
       maxNumber:        editForm.maxNumber,
       isCustom:         editForm.isCustom,
       allowSeries:      editForm.allowSeries,
+      allowMultiDraw:   editForm.allowMultiDraw,
       drawHours:        editForm.drawHours,
       maxSalesPerNumber: editForm.maxSalesPerNumber,
     });
@@ -359,6 +369,18 @@ const GamesTab = () => {
                     Permitir venta por rango (ej: serie del 00 al 99)
                   </label>
                 </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', marginBottom: '0.25rem' }}>
+                  <input
+                    type="checkbox"
+                    id={`edit-allow-multi-draw-${game.id}`}
+                    checked={editForm.allowMultiDraw || false}
+                    onChange={(e) => setEditForm((f) => ({ ...f, allowMultiDraw: e.target.checked }))}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <label htmlFor={`edit-allow-multi-draw-${game.id}`} style={{ margin: 0, userSelect: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                    🔁 Permitir Multi-Sorteo (vender para 2+ sorteos a la vez)
+                  </label>
+                </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label>Descripción</label>
                   <input className="form-control" value={editForm.description || ''} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} />
@@ -542,18 +564,74 @@ const NumbersTab = () => {
       {/* Sin selector de sorteo — se eliminó el concepto */}
 
       {/* Agregar número */}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <input
-          className="form-control"
-          type="number"
-          value={newNumber}
-          onChange={(e) => setNewNumber(e.target.value)}
-          placeholder={lottery?.numberRange ? `Ej: ${lottery.numberRange.min}–${lottery.numberRange.max}` : 'Número'}
-          id="block-number-input"
-          onKeyDown={(e) => e.key === 'Enter' && handleBlock()}
-          style={{ flex: 1, fontSize: '1.1rem', textAlign: 'center', fontWeight: 700 }}
-        />
-        <button className="btn btn-primary" onClick={handleBlock} id="block-number-btn" style={{ flexShrink: 0 }}>
+      {/* Agregar número */}
+      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+        {selectedLottery === 'fechea' ? (
+          (() => {
+            const parts = (newNumber || '').split('/');
+            const currentDay = parts[0] || '';
+            const currentMonth = parts[1] || '';
+
+            const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+            const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+            const handleDayChange = (e) => {
+              const newDay = e.target.value;
+              const newMonth = currentMonth || '01';
+              setNewNumber(newDay ? `${newDay}/${newMonth}` : '');
+            };
+
+            const handleMonthChange = (e) => {
+              const newDay = currentDay || '01';
+              const newMonth = e.target.value;
+              setNewNumber(newMonth ? `${newDay}/${newMonth}` : '');
+            };
+
+            return (
+              <div style={{ display: 'flex', gap: '0.25rem', flex: 1 }}>
+                <select
+                  className="form-control"
+                  value={currentDay}
+                  onChange={handleDayChange}
+                  style={{ flex: 1, textAlign: 'center', fontWeight: 700, fontSize: '0.95rem', height: '42px' }}
+                  id="block-fechea-day-select"
+                >
+                  <option value="">Día</option>
+                  {days.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <select
+                  className="form-control"
+                  value={currentMonth}
+                  onChange={handleMonthChange}
+                  style={{ flex: 1, textAlign: 'center', fontWeight: 700, fontSize: '0.95rem', height: '42px' }}
+                  id="block-fechea-month-select"
+                >
+                  <option value="">Mes</option>
+                  {months.map((label, idx) => {
+                    const mVal = String(idx + 1).padStart(2, '0');
+                    return (
+                      <option key={mVal} value={mVal}>{label}</option>
+                    );
+                  })}
+                </select>
+              </div>
+            );
+          })()
+        ) : (
+          <input
+            className="form-control"
+            type="number"
+            value={newNumber}
+            onChange={(e) => setNewNumber(e.target.value)}
+            placeholder={lottery?.numberRange ? `Ej: ${lottery.numberRange.min}–${lottery.numberRange.max}` : 'Número'}
+            id="block-number-input"
+            onKeyDown={(e) => e.key === 'Enter' && handleBlock()}
+            style={{ flex: 1, fontSize: '1.1rem', textAlign: 'center', fontWeight: 700, height: '42px' }}
+          />
+        )}
+        <button className="btn btn-primary" onClick={handleBlock} id="block-number-btn" style={{ flexShrink: 0, height: '42px' }}>
           <Lock size={16} /> Cerrar
         </button>
       </div>
@@ -589,7 +667,7 @@ const NumbersTab = () => {
                   fontSize: '0.85rem', fontWeight: 700, color: '#f87171',
                 }}
               >
-                {num}
+                {selectedLottery === 'fechea' ? formatFecheaDate(num) : num}
                 <button onClick={() => handleUnblock(num)} style={{ background: 'none', color: '#f87171', lineHeight: 1, padding: '1px' }} aria-label={`Desbloquear ${num}`}>
                   <X size={12} />
                 </button>
@@ -600,6 +678,53 @@ const NumbersTab = () => {
       </div>
     </div>
   );
+};
+
+const generatePreviewUsername = (fullName, existingUsers = []) => {
+  let normalized = fullName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  normalized = normalized.replace(/[^a-z0-9\s]/g, "");
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  
+  if (parts.length < 2) return '';
+  
+  const firstName = parts[0];
+  let lastName = '';
+  if (parts.length === 2) {
+    lastName = parts[1];
+  } else if (parts.length === 3) {
+    lastName = parts[1]; // primer apellido
+  } else {
+    lastName = parts[2]; // primer apellido asumiendo 2 nombres
+  }
+  
+  const f = firstName;
+  const l = lastName;
+  
+  const exists = (uname) => existingUsers.some(u => u.username?.toLowerCase() === uname.toLowerCase());
+  
+  // 1. Primera letra del nombre + apellido
+  let candidate = f.charAt(0) + l;
+  if (!exists(candidate)) return candidate;
+  
+  // 2. Dos letras del nombre + apellido
+  if (f.length >= 2) {
+    candidate = f.substring(0, 2) + l;
+    if (!exists(candidate)) return candidate;
+  }
+  
+  // 3. Dos letras del nombre + punto + apellido
+  if (f.length >= 2) {
+    candidate = f.substring(0, 2) + '.' + l;
+    if (!exists(candidate)) return candidate;
+  }
+  
+  // 4. Secuencial
+  let i = 1;
+  while (true) {
+    candidate = f.substring(0, 2) + '.' + l + i;
+    if (!exists(candidate)) return candidate;
+    i++;
+  }
 };
 
 // ─── Tab: Usuarios ────────────────────────────────────────────
@@ -621,8 +746,19 @@ const UsersTab = () => {
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
+  const handleNameChange = (e) => {
+    const val = e.target.value;
+    const generated = generatePreviewUsername(val, users);
+    setForm(f => ({ ...f, name: val, username: generated }));
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    const parts = form.name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) {
+      toast.error('Debe colocar al menos un apellido');
+      return;
+    }
     setLoading(true);
     try {
       await createUser(form);
@@ -660,19 +796,39 @@ const UsersTab = () => {
     }
   };
 
-  const handleChangePassword = async (id) => {
-    const newPass = await dialog.prompt('Nueva contraseña:', {
-      title: 'Cambiar contraseña',
-      placeholder: 'Mínimo 4 caracteres',
-      confirmLabel: 'Guardar',
-      type: 'info',
-    });
-    if (!newPass || newPass.length < 4) {
-      if (newPass !== null) toast.error('Contraseña muy corta (mínimo 4 caracteres)');
+  const [editForm, setEditForm] = useState({ name: '', password: '' });
+
+  const startEdit = (u) => {
+    setEditingId(u.id);
+    setEditForm({ name: u.name, password: '' });
+  };
+
+  const handleSaveEdit = async (e, id) => {
+    e.preventDefault();
+    if (!editForm.name.trim()) {
+      toast.error('El nombre completo es requerido.');
       return;
     }
-    await updateUser(id, { password: newPass });
-    toast.success('Contraseña actualizada');
+    setLoading(true);
+    try {
+      const payload = { name: editForm.name.trim() };
+      if (editForm.password) {
+        if (editForm.password.length < 6) {
+          toast.error('La contraseña debe tener al menos 6 caracteres.');
+          setLoading(false);
+          return;
+        }
+        payload.password = editForm.password;
+      }
+      await updateUser(id, payload);
+      toast.success('Usuario actualizado');
+      setEditingId(null);
+      await loadUsers();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -695,11 +851,11 @@ const UsersTab = () => {
             <div className="responsive-grid-2col">
               <div className="form-group">
                 <label>Nombre completo</label>
-                <input className="form-control" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required placeholder="Ej: María García" />
+                <input className="form-control" value={form.name} onChange={handleNameChange} required placeholder="Ej: María García" autoFocus />
               </div>
               <div className="form-group">
-                <label>Usuario</label>
-                <input className="form-control" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} required placeholder="usuario123" autoComplete="off" />
+                <label>Usuario (automático)</label>
+                <input className="form-control" value={form.username ? `@${form.username}` : ''} disabled style={{ backgroundColor: 'var(--bg-elevated)', opacity: 0.7, cursor: 'not-allowed', fontWeight: 700 }} />
               </div>
               <div className="form-group" style={{ position: 'relative' }}>
                 <label>Contraseña</label>
@@ -728,42 +884,62 @@ const UsersTab = () => {
       {/* Lista de usuarios */}
       {users.map((u) => (
         <div key={u.id} className="card" style={{ opacity: u.active ? 1 : 0.6, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-              background: u.role === 'admin' ? 'rgba(168,85,247,0.15)' : 'rgba(96,165,250,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: u.role === 'admin' ? 'var(--neon-purple)' : 'var(--neon-blue)',
-            }}>
-              {u.role === 'admin' ? <Shield size={18} /> : <Users size={18} />}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{u.name}</span>
-                {u.id === currentUser?.id && <span className="badge badge-active" style={{ fontSize: '0.6rem' }}>Tú</span>}
+          {editingId === u.id ? (
+            <form onSubmit={(e) => handleSaveEdit(e, u.id)} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h4 style={{ fontWeight: 700, fontSize: '0.9rem', margin: 0, color: 'var(--accent-light)' }}>Editar Usuario</h4>
+              <div className="responsive-grid-2col">
+                <div className="form-group">
+                  <label>Nombre completo</label>
+                  <input className="form-control" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+                </div>
+                <div className="form-group">
+                  <label>Nueva Contraseña (dejar en blanco para no cambiar)</label>
+                  <input className="form-control" type="password" value={editForm.password} onChange={(e) => setEditForm(f => ({ ...f, password: e.target.value }))} placeholder="••••" />
+                </div>
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                @{u.username} · {u.role === 'admin' ? 'Administrador' : 'Vendedor'}
-                {!u.active && <span style={{ color: 'var(--neon-red)' }}> · Inactivo</span>}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Guardar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingId(null)} style={{ flex: 1 }}>Cancelar</button>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-              <button className="btn btn-ghost btn-icon" onClick={() => handleChangePassword(u.id)} title="Cambiar contraseña" id={`change-pass-${u.id}`}>
-                <Edit3 size={15} color="var(--text-muted)" />
-              </button>
-              <button onClick={() => handleToggleActive(u)} style={{ background: 'none', padding: '4px' }} id={`toggle-user-${u.id}`}>
-                {u.active
-                  ? <ToggleRight size={32} color="var(--neon-green)" />
-                  : <ToggleLeft size={32} color="var(--text-muted)" />
-                }
-              </button>
-              {u.id !== currentUser?.id && (
-                <button className="btn btn-ghost btn-icon" onClick={() => handleDelete(u.id, u.username)} id={`delete-user-${u.id}`}>
-                  <Trash2 size={15} color="var(--neon-red)" />
+            </form>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                background: u.role === 'admin' ? 'rgba(168,85,247,0.15)' : 'rgba(96,165,250,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: u.role === 'admin' ? 'var(--neon-purple)' : 'var(--neon-blue)',
+              }}>
+                {u.role === 'admin' ? <Shield size={18} /> : <Users size={18} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{u.name}</span>
+                  {u.id === currentUser?.id && <span className="badge badge-active" style={{ fontSize: '0.6rem' }}>Tú</span>}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  @{u.username} · {u.role === 'admin' ? 'Administrador' : 'Vendedor'}
+                  {!u.active && <span style={{ color: 'var(--neon-red)' }}> · Inactivo</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                <button className="btn btn-ghost btn-icon" onClick={() => startEdit(u)} title="Editar usuario" id={`edit-user-${u.id}`}>
+                  <Edit3 size={15} color="var(--text-muted)" />
                 </button>
-              )}
+                <button onClick={() => handleToggleActive(u)} style={{ background: 'none', padding: '4px' }} id={`toggle-user-${u.id}`}>
+                  {u.active
+                    ? <ToggleRight size={32} color="var(--neon-green)" />
+                    : <ToggleLeft size={32} color="var(--text-muted)" />
+                  }
+                </button>
+                {u.id !== currentUser?.id && (
+                  <button className="btn btn-ghost btn-icon" onClick={() => handleDelete(u.id, u.username)} id={`delete-user-${u.id}`}>
+                    <Trash2 size={15} color="var(--neon-red)" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           
           {/* Accesos rápidos para administrar ventas del usuario */}
           <div style={{ display: 'flex', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
@@ -793,7 +969,18 @@ const UsersTab = () => {
 // ─── Tab: Resultados / Ganadores ─────────────────────────────
 const formatHourAmPm = (hourStr) => {
   if (!hourStr) return '';
-  const [h, m] = hourStr.split(':').map(Number);
+  let str = String(hourStr).trim().toLowerCase();
+  str = str.replace(/(hrs|horas|hr|h)/g, '').trim();
+  let h = 0, m = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    h = Number(parts[0]);
+    m = Number(parts[1]);
+  } else {
+    h = Number(str);
+    m = 0;
+  }
+  if (isNaN(h) || isNaN(m)) return hourStr;
   const ampm = h >= 12 ? 'PM' : 'AM';
   const displayH = h % 12 || 12;
   const displayM = String(m).padStart(2, '0');
@@ -852,7 +1039,7 @@ const ResultsTab = () => {
     const lt = getLotteryById(form.lotteryId);
     const displayNum = form.lotteryId === 'fechea' ? formatFecheaDate(form.numeroGanador) : form.numeroGanador;
     const confirmed = await dialog.confirm(
-      `Anunciar ${form.lotteryId === 'fechea' ? 'fecha' : 'número'} ${displayNum} como ganador en ${lt?.name} para el ${form.fechaSorteo} a las ${formatHourAmPm(form.horaSorteo)}.`,
+      `Anunciar ${form.lotteryId === 'fechea' ? 'fecha' : 'número'} ${displayNum} como ganador en ${lt?.name} para el ${formatDrawDate(form.fechaSorteo)} a las ${formatHourAmPm(form.horaSorteo)}.`,
       { title: 'Anunciar resultado', type: 'warning', confirmLabel: 'Anunciar' }
     );
     if (!confirmed) return;
@@ -1068,7 +1255,7 @@ const ResultsTab = () => {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {r.fechaSorteo} {r.horaSorteo && `(${formatHourAmPm(r.horaSorteo)})`} · {r.announcedBy}
+                      {formatDrawDate(r.fechaSorteo)} {r.horaSorteo && `(${formatHourAmPm(r.horaSorteo)})`} · {r.announcedBy}
                       {r.winnersCount > 0 && (
                         <span style={{ marginLeft: 8, color: '#fbbf24', fontWeight: 700 }}>
                           {r.winnersCount} ganador{r.winnersCount !== 1 ? 'es' : ''}
@@ -1091,23 +1278,62 @@ const ResultsTab = () => {
 };
 
 // ─── Tab: Cierre Diario y Salarios ───────────────────────────
+const getDefaultDatesForUser = (user) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const format = (d) => d.toISOString().split('T')[0];
+
+  if (!user || user.salary_period === 'daily') {
+    return { start: format(now), end: format(now) };
+  }
+  if (user.salary_period === 'weekly') {
+    const past = new Date();
+    past.setDate(now.getDate() - 6);
+    return { start: format(past), end: format(now) };
+  }
+  if (user.salary_period === 'fortnightly') {
+    const day = now.getDate();
+    if (day <= 15) {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month, 15);
+      return { start: format(start), end: format(end) };
+    } else {
+      const start = new Date(year, month, 16);
+      const end = new Date(year, month + 1, 0);
+      return { start: format(start), end: format(end) };
+    }
+  }
+  if (user.salary_period === 'monthly') {
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    return { start: format(start), end: format(end) };
+  }
+  return { start: format(now), end: format(now) };
+};
+
 const SalariesTab = () => {
   const { updateUser } = useAuth();
   const [report, setReport] = useState([]);
+  const [paymentsHistory, setPaymentsHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingSalary, setEditingSalary] = useState({}); // stores user_id -> { type, value }
+  const [editingSalary, setEditingSalary] = useState({}); // stores user_id -> { type, value, period }
   const [savingId, setSavingId] = useState(null);
+  const [prevSelectedUserId, setPrevSelectedUserId] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [startDateInput, setStartDateInput] = useState('');
+  const [endDateInput, setEndDateInput] = useState('');
 
-  const fetchReport = useCallback(async (showToast = false) => {
+  const fetchReport = useCallback(async (sDate, eDate, showToast = false) => {
     setLoading(true);
     NProgress.start();
     try {
-      const res = await api.get('/users.php?report=1');
+      const url = `/users.php?report=1&start_date=${sDate}&end_date=${eDate}`;
+      const res = await api.get(url);
       const rData = res.report || [];
       setReport(rData);
+      setPaymentsHistory(res.payments || []);
 
-      // Auto-select first user if none is selected or the selected user is no longer in the report
       setSelectedUserId((prev) => {
         if (prev && rData.some(u => u.id === prev)) {
           return prev;
@@ -1115,7 +1341,7 @@ const SalariesTab = () => {
         return rData.length > 0 ? rData[0].id : null;
       });
 
-      if (showToast) toast.success('Reporte diario actualizado');
+      if (showToast) toast.success('Reporte de salarios actualizado');
     } catch (err) {
       toast.error('Error al cargar reporte: ' + err.message);
     } finally {
@@ -1124,9 +1350,37 @@ const SalariesTab = () => {
     }
   }, []);
 
+  // Carga inicial
   useEffect(() => {
-    fetchReport();
+    const today = new Date().toISOString().split('T')[0];
+    setStartDateInput(today);
+    setEndDateInput(today);
+    fetchReport(today, today);
   }, [fetchReport]);
+
+  // Al cambiar el vendedor seleccionado, resetear las fechas de consulta a su periodo por defecto
+  useEffect(() => {
+    if (report.length === 0) return;
+    const activeUserId = selectedUserId || report[0].id;
+    if (activeUserId !== prevSelectedUserId) {
+      setPrevSelectedUserId(activeUserId);
+      const u = report.find(x => x.id === activeUserId);
+      if (u) {
+        const dates = getDefaultDatesForUser(u);
+        setStartDateInput(dates.start);
+        setEndDateInput(dates.end);
+        fetchReport(dates.start, dates.end);
+      }
+    }
+  }, [selectedUserId, report, prevSelectedUserId, fetchReport]);
+
+  const handleQuery = () => {
+    if (startDateInput > endDateInput) {
+      toast.error("La fecha 'Desde' tiene que ser menor o igual que la fecha 'Hasta'.");
+      return;
+    }
+    fetchReport(startDateInput, endDateInput, true);
+  };
 
   const handleSaveSalary = async (userId) => {
     const editData = editingSalary[userId];
@@ -1140,7 +1394,8 @@ const SalariesTab = () => {
     try {
       await updateUser(userId, {
         salary_type: editData.type,
-        salary_value: parseFloat(editData.value)
+        salary_value: parseFloat(editData.value),
+        salary_period: editData.period
       });
       toast.success('Salario actualizado con éxito');
       setEditingSalary((prev) => {
@@ -1148,7 +1403,7 @@ const SalariesTab = () => {
         delete copy[userId];
         return copy;
       });
-      await fetchReport();
+      await fetchReport(startDateInput, endDateInput);
     } catch (err) {
       toast.error('Error al actualizar salario: ' + err.message);
     } finally {
@@ -1170,7 +1425,8 @@ const SalariesTab = () => {
       ...prev,
       [user.id]: {
         type: user.salary_type || 'percentage',
-        value: parseFloat(user.salary_value !== undefined ? user.salary_value : 10.00)
+        value: parseFloat(user.salary_value !== undefined ? user.salary_value : 10.00),
+        period: user.salary_period || 'daily'
       }
     }));
   };
@@ -1270,13 +1526,18 @@ const SalariesTab = () => {
             const ticketsSold = parseInt(u.tickets_sold_count || 0);
             const prizesTotal = parseFloat(u.prizes_total || 0);
             const prizesCount = parseInt(u.prizes_count || 0);
+            const daysActive = parseInt(u.days_active || 0);
 
-            // Calcular salario
-            let dailySalary = 0;
+            // Calcular salario según tipo y periodo
+            let calculatedSalary = 0;
             if (u.salary_type === 'fixed') {
-              dailySalary = parseFloat(u.salary_value || 0);
+              if (u.salary_period === 'daily') {
+                calculatedSalary = daysActive * parseFloat(u.salary_value || 0);
+              } else {
+                calculatedSalary = parseFloat(u.salary_value || 0);
+              }
             } else {
-              dailySalary = totalSold * (parseFloat(u.salary_value || 0) / 100);
+              calculatedSalary = totalSold * (parseFloat(u.salary_value || 0) / 100);
             }
 
             // Total a entregar (caja) = Venta Total - Total Premios + Ajuste (0)
@@ -1284,7 +1545,7 @@ const SalariesTab = () => {
             const totalToDeliver = totalSold - prizesTotal + adjustment;
 
             // Total a entregar descontando salario
-            const totalToDeliverMinusSalary = totalToDeliver - dailySalary;
+            const totalToDeliverMinusSalary = totalToDeliver - calculatedSalary;
 
             const formatNIO = (val) => {
               const absVal = Math.abs(val);
@@ -1301,19 +1562,91 @@ const SalariesTab = () => {
             const editState = editingSalary[u.id];
             const isEditing = editState !== undefined;
 
+            const isPeriodPaid = paymentsHistory.some(p => 
+              p.seller_id === u.id &&
+              !(endDateInput < p.start_date || startDateInput > p.end_date)
+            );
+
+            const handlePaySalary = async () => {
+              if (isPeriodPaid) {
+                toast.error("Este período ya fue liquidado.");
+                return;
+              }
+              try {
+                NProgress.start();
+                const res = await api.post('/users.php?pay=1', {
+                  seller_id: u.id,
+                  start_date: startDateInput,
+                  end_date: endDateInput,
+                  total_sold: totalSold,
+                  prizes_total: prizesTotal,
+                  commission_amount: calculatedSalary
+                });
+                toast.success(res.message || "Pago registrado con éxito.");
+                // Actualizar reporte
+                await fetchReport(startDateInput, endDateInput);
+              } catch (err) {
+                toast.error("Error al registrar pago: " + err.message);
+              } finally {
+                NProgress.done();
+              }
+            };
+
             return (
-              <div key={u.id} className="card" style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '1.25rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                opacity: u.active ? 1 : 0.6,
-                transition: 'all 0.3s ease',
-                animation: 'fadeIn 0.25s ease'
-              }}>
+              <div key={u.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* Rango de Consulta de Fechas */}
+                <div className="card" style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.85rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem'
+                }}>
+                  <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 140 }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Fecha Desde</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={startDateInput}
+                      onChange={(e) => setStartDateInput(e.target.value)}
+                      style={{ fontWeight: 700, fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 140 }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Fecha Hasta</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={endDateInput}
+                      onChange={(e) => setEndDateInput(e.target.value)}
+                      style={{ fontWeight: 700, fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleQuery}
+                    disabled={loading}
+                    style={{ height: 35, padding: '0 1.25rem', gap: '0.4rem', fontSize: '0.75rem', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                  >
+                    <Search size={13} /> Consultar Rango
+                  </button>
+                </div>
+
+                <div className="card" style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                  opacity: u.active ? 1 : 0.6,
+                  transition: 'all 0.3s ease',
+                  animation: 'fadeIn 0.25s ease'
+                }}>
                 {/* Header de la tarjeta */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1376,7 +1709,7 @@ const SalariesTab = () => {
                       <Settings2 size={13} /> Configuración de Salario para {u.name}
                     </div>
 
-                    <div className="responsive-grid-2col">
+                    <div className="responsive-grid-3col" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr', gap: '0.6rem' }}>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label style={{ fontSize: '0.7rem', marginBottom: 2 }}>Tipo de Salario</label>
                         <div style={{
@@ -1432,8 +1765,28 @@ const SalariesTab = () => {
                       </div>
 
                       <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '0.7rem', marginBottom: 2 }}>Frecuencia de Pago</label>
+                        <select
+                          className="form-control"
+                          value={editState.period || 'daily'}
+                          onChange={(e) => setEditingSalary(prev => ({
+                            ...prev,
+                            [u.id]: { ...prev[u.id], period: e.target.value }
+                          }))}
+                          style={{ fontSize: '0.75rem', height: '34px', padding: '0.3rem 0.6rem' }}
+                        >
+                          <option value="daily">Diario</option>
+                          <option value="weekly">Semanal</option>
+                          <option value="fortnightly">Quincenal</option>
+                          <option value="monthly">Mensual</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
                         <label style={{ fontSize: '0.7rem', marginBottom: 2 }}>
-                          {editState.type === 'fixed' ? 'Monto Diario (NIO)' : 'Comisión de Ventas (%)'}
+                          {editState.type === 'fixed' 
+                            ? (editState.period === 'daily' ? 'Monto Diario' : 'Monto Periodo') 
+                            : 'Comisión (%)'}
                         </label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                           {editState.type === 'fixed' && <span style={{ position: 'absolute', left: 8, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>NIO</span>}
@@ -1507,19 +1860,19 @@ const SalariesTab = () => {
                     </div>
                   </div>
 
-                  {/* Ajuste pago premios */}
+                  {/* Días Activos */}
                   <div style={{
                     background: 'rgba(255,255,255,0.02)',
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     padding: '0.6rem 0.8rem'
                   }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Ajuste Pago Premios</span>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 800, marginTop: 2, color: 'var(--text-secondary)' }}>
-                      NIO 0.00
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Días Activos</span>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, marginTop: 2, color: '#fff' }}>
+                      {daysActive} día{daysActive !== 1 ? 's' : ''}
                     </div>
-                    <div style={{ fontSize: '0.58rem', color: 'var(--accent-light)', marginTop: 1, fontStyle: 'italic', fontWeight: 500 }}>
-                      * Se parametrizará más adelante
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: 1 }}>
+                      Con venta en el periodo
                     </div>
                   </div>
 
@@ -1546,15 +1899,48 @@ const SalariesTab = () => {
                     borderRadius: '8px',
                     padding: '0.6rem 0.8rem'
                   }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Salario del Día</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Salario Configurado</span>
                     <div style={{ fontSize: '0.92rem', fontWeight: 800, marginTop: 2, color: 'var(--accent-light)' }}>
-                      {formatNIO(dailySalary)}
-                    </div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: 1 }}>
                       {u.salary_type === 'fixed'
                         ? `${formatNIO(u.salary_value)} fijo`
                         : `${parseFloat(u.salary_value)}% de ventas`}
                     </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: 1 }}>
+                      Periodo: {u.salary_period === 'daily' ? 'Diario' : u.salary_period === 'weekly' ? 'Semanal' : u.salary_period === 'fortnightly' ? 'Quincenal' : 'Mensual'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Salario / Comisión a Pagar (Resaltado) */}
+                <div style={{
+                  background: 'rgba(124,58,237,0.08)',
+                  border: '2.5px solid var(--accent)',
+                  boxShadow: '0 0 15px rgba(124,58,237,0.2)',
+                  borderRadius: '12px',
+                  padding: '1.1rem 1.35rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  marginTop: '0.4rem',
+                  marginBottom: '0.2rem'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 850, color: 'var(--accent-light)' }}>
+                      Sueldo / Comisión Total a Pagar
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                      Monto calculado correspondiente al rango seleccionado del {formatDrawDate(startDateInput)} al {formatDrawDate(endDateInput)}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 900,
+                    color: 'var(--accent-light)',
+                    fontFamily: 'Outfit, monospace',
+                    textShadow: '0 0 10px rgba(168,85,247,0.25)'
+                  }}>
+                    {formatNIO(calculatedSalary)}
                   </div>
                 </div>
 
@@ -1563,7 +1949,7 @@ const SalariesTab = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.5rem',
-                  marginTop: '0.2rem'
+                  marginTop: '0.1rem'
                 }}>
                   {/* Total a entregar (Caja) */}
                   <div style={{
@@ -1609,7 +1995,7 @@ const SalariesTab = () => {
                     <div>
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Neto Descontando Salario</div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-                        Balance si el vendedor se paga su salario de la caja recolectada
+                        Balance si el vendedor se cobra su comisión/salario directamente de la caja
                       </div>
                     </div>
                     <div style={{
@@ -1624,9 +2010,102 @@ const SalariesTab = () => {
                   </div>
                 </div>
 
+                {/* Botón para Registrar Pago del Periodo */}
+                <div style={{ marginTop: '0.5rem' }}>
+                  {isPeriodPaid ? (
+                    <div style={{
+                      background: 'rgba(239,68,68,0.08)',
+                      border: '1.5px solid rgba(239,68,68,0.25)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.75rem 1rem',
+                      color: 'var(--neon-red)',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}>
+                      <CheckCircle2 size={14} /> Este periodo ya ha sido registrado como pagado para este vendedor.
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      onClick={handlePaySalary}
+                      disabled={loading || (calculatedSalary === 0 && totalSold === 0)}
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                        fontSize: '0.82rem',
+                        padding: '0.6rem 1rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-md)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <CheckCircle2 size={15} /> Registrar Pago del Periodo
+                    </button>
+                  )}
+                </div>
+
+                {/* Historial de Pagos de Salarios */}
+                <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                    Historial de Pagos Registrados
+                  </h3>
+                  {(() => {
+                    const userPayments = paymentsHistory.filter(p => p.seller_id === u.id);
+                    if (userPayments.length === 0) {
+                      return (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+                          No hay pagos registrados para este vendedor.
+                        </p>
+                      );
+                    }
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 180, overflowY: 'auto', paddingRight: '4px' }}>
+                        {userPayments.map(p => (
+                          <div key={p.id} style={{
+                            background: 'rgba(255,255,255,0.01)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            padding: '0.65rem 0.85rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '0.75rem'
+                          }}>
+                            <div>
+                              <div style={{ fontWeight: 700, color: '#fff' }}>
+                                Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
+                              </div>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontWeight: 800, color: 'var(--accent-light)' }}>
+                                Pagado: {formatNIO(parseFloat(p.commission_amount))}
+                              </div>
+                              <div style={{ fontSize: '0.58rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                                {new Date(p.paid_at).toLocaleString('es-NI')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-            );
-          })()}
+            </div>
+          );
+        })()}
         </div>
       )}
     </div>

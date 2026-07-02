@@ -10,13 +10,11 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost',
-        // Reescribe /api/xxx.php → /app/api/xxx.php (XAMPP)
-        rewrite: (path) => `/app${path}`,
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
-      '/app/uploads': {
-        target: 'http://localhost',
+      '/uploads': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },

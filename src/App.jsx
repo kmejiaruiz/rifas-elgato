@@ -109,6 +109,7 @@ const AppShell = () => {
 
   return (
     <div className="app-shell">
+      <PendingPaymentsAlert />
       {/* Navigation (Sidebar on PC, Bottom Nav on Mobile) */}
       <nav className="bottom-nav" role="navigation" aria-label="Navegación principal">
         {/* Brand — only visible on desktop sidebar */}
@@ -326,5 +327,135 @@ const App = () => (
     </AuthProvider>
   </BrowserRouter>
 );
+
+const PendingPaymentsAlert = () => {
+  const { user } = useAuth();
+  const [pending, setPending] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!user || user.role !== 'vendedor') return;
+
+    const checkPending = async () => {
+      try {
+        const res = await api.get('/users.php?pending_pay=1');
+        if (res && res.pendingPayments && res.pendingPayments.length > 0) {
+          setPending(res.pendingPayments[0]);
+        } else {
+          setPending(null);
+        }
+      } catch (err) {
+        console.warn('Error checking pending payments:', err.message);
+      }
+    };
+
+    checkPending();
+    const interval = setInterval(checkPending, 15000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  if (!pending) return null;
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    try {
+      await api.post('/users.php?confirm_pay=1', { paymentId: pending.id });
+      toast.success('Pago de salario confirmado y registrado con éxito.');
+      setPending(null);
+    } catch (err) {
+      toast.error(err.message || 'No se pudo confirmar el pago.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const formatDrawDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateStr;
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0, 0, 0, 0.85)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+      backdropFilter: 'blur(8px)', padding: '1rem'
+    }}>
+      <div style={{
+        background: 'var(--bg-card)', border: '1px solid var(--border)',
+        borderRadius: '16px', maxWidth: '450px', width: '100%',
+        padding: '1.75rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+        position: 'relative'
+      }}>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>💸</span> Confirmación de Pago
+        </h3>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+          El administrador ha solicitado registrar un pago de nómina para tu usuario. Por favor, verifica y confirma el recibido.
+        </p>
+
+        <div style={{
+          background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+          borderRadius: '8px', padding: '0.85rem 1rem', fontSize: '0.78rem',
+          display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Solicitado por:</span>
+            <span style={{ fontWeight: 700, color: '#fff' }}>{pending.created_by_name}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Período:</span>
+            <span style={{ fontWeight: 700, color: '#fff' }}>{formatDrawDate(pending.start_date)} al {formatDrawDate(pending.end_date)}</span>
+          </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Ventas Totales:</span>
+            <span style={{ fontWeight: 700 }}>NIO {Number(pending.total_sold).toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Premios Pagados:</span>
+            <span style={{ fontWeight: 700, color: pending.prizes_total > 0 ? '#f59e0b' : 'var(--text-base)' }}>NIO {Number(pending.prizes_total).toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Comisión:</span>
+            <span style={{ fontWeight: 700, color: 'var(--neon-blue)' }}>NIO {Number(pending.commission_amount).toFixed(2)}</span>
+          </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+            <span style={{ fontWeight: 800, color: '#fff' }}>Neto a Recibir:</span>
+            <span style={{ fontWeight: 800, color: 'var(--neon-green)' }}>NIO {Number(pending.net_salary).toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            <span>Solicitud creada:</span>
+            <span>{new Date(pending.paid_at).toLocaleString('es-NI')}</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setPending(null)}
+            disabled={confirming}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.75rem' }}
+          >
+            Aún no
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleConfirm}
+            disabled={confirming}
+            style={{ padding: '0.5rem 1.2rem', fontSize: '0.75rem' }}
+          >
+            {confirming ? 'Confirmando...' : 'Confirmar Recibido'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default App;

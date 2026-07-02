@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { getDB } = require('../config/db');
 const {
+  requireAuth,
   requireAdmin,
   safeUser
 } = require('../utils/helpers');

@@ -63,6 +63,7 @@ async function initSchema(dbPool) {
         active TINYINT(1) NOT NULL DEFAULT 1,
         salary_type ENUM('fixed', 'percentage') NOT NULL DEFAULT 'percentage',
         salary_value DECIMAL(10,2) NOT NULL DEFAULT 10.00,
+        salary_period ENUM('daily', 'weekly', 'fortnightly', 'monthly') NOT NULL DEFAULT 'daily',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -204,6 +205,22 @@ async function initSchema(dbPool) {
         INDEX idx_user (user_id),
         INDEX idx_action (action),
         INDEX idx_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // 12. salary_payments
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS salary_payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        seller_id VARCHAR(36) NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        total_sold DECIMAL(10,2) NOT NULL,
+        prizes_total DECIMAL(10,2) NOT NULL,
+        commission_amount DECIMAL(10,2) NOT NULL,
+        net_salary DECIMAL(10,2) NOT NULL,
+        paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 

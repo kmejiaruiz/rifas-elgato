@@ -402,6 +402,73 @@ const AppContent = () => {
     };
   }, [user]);
 
+  // ─── Polling de pagos de salario pendientes para el vendedor ────────────────
+  React.useEffect(() => {
+    let intervalId = null;
+    let isChecking = false;
+
+    const checkPendingPayments = async () => {
+      if (isChecking) return;
+      isChecking = true;
+
+      try {
+        const res = await api.get('/users.php?pending_pay=1');
+        if (res && res.pendingPayments && res.pendingPayments.length > 0) {
+          const p = res.pendingPayments[0];
+
+          // Formateadores locales simples
+          const currency = (settings && settings.currency) ? settings.currency + ' ' : 'NIO ';
+          const formatNIO = (val) => {
+            const num = Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return `${currency}${num}`;
+          };
+          const formatDrawDate = (dateStr) => {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+          };
+
+          const formattedDate = new Date(p.paid_at).toLocaleString('es-NI');
+          const message = `• Solicitado por: ${p.created_by_name}\n• Período: ${formatDrawDate(p.start_date)} al ${formatDrawDate(p.end_date)}\n• Ventas Totales: ${formatNIO(p.total_sold)}\n• Premios Pagados: ${formatNIO(p.prizes_total)}\n• Comisión Generada: ${formatNIO(p.commission_amount)}\n• Neto a Pagar: ${formatNIO(p.net_salary)}\n• Generado el: ${formattedDate}\n\n¿Confirmas que has recibido el dinero de este pago de salario?`;
+
+          Alert.alert(
+            '💸 Confirmación de Pago',
+            message,
+            [
+              { text: 'Aún no', style: 'cancel' },
+              {
+                text: 'Sí, Confirmar Recibido',
+                onPress: async () => {
+                  try {
+                    await api.post('/users.php?confirm_pay=1', { paymentId: p.id });
+                    Alert.alert('✅ ¡Confirmado!', 'El pago ha sido marcado como recibido.');
+                  } catch (err) {
+                    Alert.alert('Error', err.message || 'No se pudo confirmar el pago.');
+                  }
+                }
+              }
+            ],
+            { cancelable: false }
+          );
+        }
+      } catch (err) {
+        console.warn('Error checking pending payments:', err.message);
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    if (user && user.role === 'vendedor') {
+      checkPendingPayments();
+      intervalId = setInterval(checkPendingPayments, 15000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [user, settings]);
+
 
   // Pantalla de carga inicial (restaurando token seguro)
   if (authLoading) {

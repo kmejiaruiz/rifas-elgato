@@ -41,7 +41,8 @@ async function getDB() {
     connectionLimit: 100, // alto límite para concurrencia
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000
+    keepAliveInitialDelay: 10000,
+    dateStrings: true
   });
 
   // Inicializar esquema

@@ -61,11 +61,29 @@ async function generateUniqueUsername(db, fullName) {
   }
 }
 
-// ─── GET /api/users ➔ Listar o Reporte de Ventas/Pagos (Admin) ─
-router.get('/', requireAdmin, async (req, res) => {
+// ─── GET /api/users ➔ Listar o Reporte de Ventas/Pagos (Admin) o Peticiones de Pago Pendientes (Vendedor) ─
+router.get('/', requireAuth, async (req, res) => {
   const db = await getDB();
+  const user = req.user;
 
   try {
+    // 1. Obtener solicitudes de pago pendientes para el vendedor actual
+    if (req.query.pending_pay !== undefined) {
+      const [rows] = await db.query(
+        `SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name, paid_at, confirmed_at 
+         FROM salary_payments 
+         WHERE seller_id = ? AND status = 'pending' 
+         ORDER BY paid_at DESC`,
+        [user.id]
+      );
+      return res.json({ pendingPayments: rows });
+    }
+
+    // Para el resto de acciones (reportes, listado de usuarios), se requiere rol de administrador
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+
     if (req.query.report !== undefined) {
       // Formato YYYY-MM-DD
       const todayStr = new Date().toISOString().substring(0, 10);
@@ -123,9 +141,9 @@ router.get('/', requireAdmin, async (req, res) => {
         startDate, endDate
       ]);
 
-      // Consultar historial de pagos de salarios
+      // Consultar historial de pagos de salarios con todas sus columnas
       const [paymentRows] = await db.query(
-        'SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, paid_at FROM salary_payments ORDER BY paid_at DESC'
+        'SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name, paid_at, confirmed_at FROM salary_payments ORDER BY paid_at DESC'
       );
 
       res.json({
@@ -148,13 +166,42 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 });
 
-// ─── POST /api/users ➔ Crear usuario o Registrar Pago (Admin) ──
-router.post('/', requireAdmin, async (req, res) => {
+// ─── POST /api/users ➔ Crear usuario, Registrar Pago (Admin) o Confirmar Pago (Vendedor) ──
+router.post('/', requireAuth, async (req, res) => {
   const db = await getDB();
+  const user = req.user;
 
   try {
+    // 1. Confirmar pago (Vendedor)
+    if (req.query.confirm_pay !== undefined) {
+      const { paymentId } = req.body;
+      if (!paymentId) {
+        return res.status(400).json({ error: 'paymentId es requerido.' });
+      }
+
+      const [checkRows] = await db.query(
+        'SELECT id FROM salary_payments WHERE id = ? AND seller_id = ?',
+        [paymentId, user.id]
+      );
+      if (checkRows.length === 0) {
+        return res.status(404).json({ error: 'Solicitud de pago no encontrada o no pertenece a tu usuario.' });
+      }
+
+      await db.query(
+        'UPDATE salary_payments SET status = "confirmed", confirmed_at = NOW() WHERE id = ?',
+        [paymentId]
+      );
+
+      return res.json({ message: 'Pago confirmado y aceptado con éxito.' });
+    }
+
+    // Para el resto de acciones (registrar pagos, crear usuarios), se requiere rol de administrador
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+
     if (req.query.pay !== undefined) {
-      // Registrar un Pago de Salario
+      // Registrar un Pago de Salario (Inicia como PENDIENTE de aprobación por el vendedor)
       const b = req.body;
       const sellerId = b.seller_id || '';
       const startDate = b.start_date || '';
@@ -177,18 +224,18 @@ router.post('/', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Este periodo (o parte de él) ya ha sido registrado como pagado.' });
       }
 
-      // Insertar el pago
+      // Insertar el pago (Pendiente por defecto, guarda quién lo solicita)
       await db.query(
-        'INSERT INTO salary_payments (seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [sellerId, startDate, endDate, totalSold, prizesTotal, commissionAmount, netSalary]
+        'INSERT INTO salary_payments (seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name) VALUES (?, ?, ?, ?, ?, ?, ?, "pending", ?)',
+        [sellerId, startDate, endDate, totalSold, prizesTotal, commissionAmount, netSalary, user.name]
       );
 
       // Retornar historial actualizado
       const [paymentRows] = await db.query(
-        'SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, paid_at FROM salary_payments ORDER BY paid_at DESC'
+        'SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name, paid_at, confirmed_at FROM salary_payments ORDER BY paid_at DESC'
       );
 
-      res.json({ message: 'Pago registrado con éxito.', payments: paymentRows });
+      res.json({ message: 'Pago registrado y enviado para aprobación del vendedor.', payments: paymentRows });
 
     } else {
       // Crear un Usuario Nuevo

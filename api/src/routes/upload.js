@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { requireAdmin } = require('../utils/helpers');
 
 // Ruta física para guardar las imágenes (al mismo nivel que la carpeta web / uploads)
-const uploadDir = path.join(__dirname, '../../../../uploads'); // c:\xampp\htdocs\app\uploads
+const uploadDir = path.join(__dirname, '../../../uploads'); // c:\xampp\htdocs\app\uploads
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });

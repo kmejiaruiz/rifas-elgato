@@ -312,15 +312,22 @@ export const syncOfflineData = async (dispatch) => {
 
   if (salesQueue.length === 0 && resultsQueue.length === 0) return;
 
+  // Notificar al usuario sobre el restablecimiento y el inicio de la sincronización
+  toast.success('Conexión restablecida', { duration: 3000 });
+  const toastId = toast.loading('Sincronizando documentos pendientes en el servidor, favor espere...');
+
   let syncedSalesCount = 0;
   let syncedResultsCount = 0;
+  let totalMonto = 0.00;
 
   // Sincronizar Ventas
   const remainingSales = [];
   for (const item of salesQueue) {
     try {
-      const { sale } = await api.post('/sales.php', item.data);
+      const res = await api.post('/sales.php', item.data);
+      const sale = res.sales ? res.sales[0] : res.sale;
       syncedSalesCount++;
+      totalMonto += parseFloat(sale.monto || 0);
       if (dispatch) {
         dispatch({ type: 'SYNC_SALE', payload: { tempId: item.id, realSale: sale } });
       }
@@ -373,13 +380,13 @@ export const syncOfflineData = async (dispatch) => {
     console.error('[Sync] Error al refrescar datos sincronizados:', refreshErr);
   }
 
-  // Notificar al usuario con toast
-  if (syncedSalesCount > 0 || syncedResultsCount > 0) {
-    let msg = 'Sincronización exitosa: ';
-    const parts = [];
-    if (syncedSalesCount > 0) parts.push(`${syncedSalesCount} venta(s)`);
-    if (syncedResultsCount > 0) parts.push(`${syncedResultsCount} resultado(s)`);
-    msg += parts.join(' y ') + ' subidos al servidor.';
-    toast.success(msg, { duration: 5000 });
+  // Quitar el toast de carga
+  toast.dismiss(toastId);
+
+  // Notificar al usuario con el formato solicitado
+  if (syncedSalesCount > 0) {
+    toast.success(`${syncedSalesCount} ventas sincronizadas con un total de NIO ${totalMonto.toFixed(2)} en el servidor.`, { duration: 5000 });
+  } else if (syncedResultsCount > 0) {
+    toast.success(`${syncedResultsCount} resultados sincronizados en el servidor.`, { duration: 5000 });
   }
 };

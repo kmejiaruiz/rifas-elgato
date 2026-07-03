@@ -275,6 +275,8 @@ export const RootPanel = () => {
   // Estados añadidos
   const [activeTab, setActiveTab] = useState('status'); // 'status' | 'server' | 'security'
   const [bypassCode, setBypassCode] = useState('');
+  const [dbStatus, setDbStatus] = useState('checking'); // 'checking' | 'connected' | 'disconnected'
+  const [dbError, setDbError] = useState('');
 
   // Reloj en tiempo real
   useEffect(() => {
@@ -282,7 +284,25 @@ export const RootPanel = () => {
     return () => clearInterval(iv);
   }, []);
 
-  // Cargar configuraciones de bypassCode
+  // Probar conexión a la base de datos
+  const checkDbConnection = async () => {
+    setDbStatus('checking');
+    setDbError('');
+    try {
+      const res = await api.get('/health.php');
+      if (res && res.database === 'connected') {
+        setDbStatus('connected');
+      } else {
+        setDbStatus('disconnected');
+        setDbError(res.error || 'Base de datos no disponible.');
+      }
+    } catch (err) {
+      setDbStatus('disconnected');
+      setDbError(err.message || 'Error de comunicación con la API.');
+    }
+  };
+
+  // Cargar configuraciones de bypassCode y validar base de datos al iniciar
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -295,6 +315,7 @@ export const RootPanel = () => {
       }
     };
     loadSettings();
+    checkDbConnection();
   }, []);
 
   const handleSaveBypassCode = async (e) => {
@@ -379,7 +400,6 @@ export const RootPanel = () => {
 
   return (
     <>
-      {/* Animaciones del modal de credenciales */}
       <style>{`
         @keyframes rootModalFadeIn {
           from { opacity: 0; }
@@ -388,6 +408,13 @@ export const RootPanel = () => {
         @keyframes rootModalSlideIn {
           from { opacity: 0; transform: scale(0.88) translateY(16px); }
           to   { opacity: 1; transform: scale(1)    translateY(0);     }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .spin {
+          animation: spin 1s linear infinite;
         }
 
         /* Grid del Panel Root en PC */
@@ -730,7 +757,7 @@ export const RootPanel = () => {
                 En la plataforma web, el backend y el frontend se ejecutan bajo el mismo dominio de forma automática e integrada.
               </p>
               
-              <div className="form-group" style={{ marginBottom: 0 }}>
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                 <label>Origen de la API</label>
                 <input
                   className="form-control"
@@ -739,6 +766,60 @@ export const RootPanel = () => {
                   readOnly
                   style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--primary-light)', cursor: 'default', fontWeight: 700 }}
                 />
+              </div>
+
+              {/* Estado de la Base de Datos */}
+              <div style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>
+                  Estado de la Base de Datos
+                </p>
+                {dbStatus === 'checking' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'var(--accent)', borderColor: 'rgba(255,255,255,0.1)', display: 'inline-block' }} />
+                    Verificando conexión...
+                  </div>
+                )}
+                {dbStatus === 'connected' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
+                    <CheckCircle2 size={16} />
+                    Conectado con éxito a la base de datos ✓
+                  </div>
+                )}
+                {dbStatus === 'disconnected' && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#f87171', fontWeight: 600, marginBottom: '0.4rem' }}>
+                      <AlertTriangle size={16} />
+                      Error al conectar a la base de datos
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'rgba(248,113,113,0.8)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {dbError}
+                    </p>
+                  </div>
+                )}
+                
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={checkDbConnection}
+                  disabled={dbStatus === 'checking'}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '8px',
+                    cursor: dbStatus === 'checking' ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  <RefreshCw size={12} className={dbStatus === 'checking' ? 'spin' : ''} />
+                  Probar Conexión
+                </button>
               </div>
             </div>
           )}

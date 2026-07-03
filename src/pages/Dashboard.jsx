@@ -17,7 +17,18 @@ export const Dashboard = () => {
   
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   const animTimeout = useRef(null);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('pwa_install_dismissed') === 'true';
+    setShowInstallBanner(!!installPwa && !dismissed);
+  }, [installPwa]);
+
+  const handleDismissInstall = () => {
+    localStorage.setItem('pwa_install_dismissed', 'true');
+    setShowInstallBanner(false);
+  };
 
   // Build full image URL from relative path (e.g. /app/uploads/carousel_xxx.jpg)
   const buildImageUrl = (url) => {
@@ -130,14 +141,35 @@ export const Dashboard = () => {
       </div>
 
       {/* PWA Install Banner — full width */}
-      {installPwa && (
-        <div className="pwa-banner">
+      {showInstallBanner && (
+        <div className="pwa-banner" style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
           <span>📲</span>
           <div style={{ flex: 1 }}>
             <strong>Instalar Aplicación</strong>
             <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Instala la app en tu pantalla de inicio para acceso rápido y soporte sin conexión.</p>
           </div>
-          <button className="btn btn-primary" onClick={installPwa} style={{ whiteSpace: 'nowrap', padding: '0.5rem 1.1rem', fontSize: '0.8rem', borderRadius: '99px' }}>Instalar</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button className="btn btn-primary" onClick={installPwa} style={{ whiteSpace: 'nowrap', padding: '0.5rem 1.1rem', fontSize: '0.8rem', borderRadius: '99px' }}>Instalar</button>
+            <button 
+              type="button" 
+              onClick={handleDismissInstall} 
+              style={{ 
+                background: 'transparent', 
+                border: 'none', 
+                color: 'var(--text-muted)', 
+                cursor: 'pointer', 
+                padding: '0.25rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                borderRadius: '50%',
+                transition: 'background-color 0.2s'
+              }}
+              title="No mostrar de nuevo"
+            >
+              <XCircle size={18} />
+            </button>
+          </div>
         </div>
       )}
 

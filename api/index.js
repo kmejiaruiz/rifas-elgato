@@ -44,9 +44,15 @@ app.use(['/api/notifications', '/api/notifications.php'], notificationsRouter);
 app.use(['/api/upload', '/api/upload.php'], uploadRouter);
 app.use(['/api/root', '/api/root.php'], rootRouter);
 
-// Ruta de estado general
-app.get(['/api/health', '/api/health.php'], (req, res) => {
-  res.json({ status: 'ok', serverTime: new Date() });
+// Ruta de estado general (verifica también conexión a base de datos)
+app.get(['/api/health', '/api/health.php'], async (req, res) => {
+  try {
+    const db = await getDB();
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', database: 'connected', serverTime: new Date() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', database: 'disconnected', error: err.message });
+  }
 });
 
 // Manejo de errores global

@@ -166,6 +166,7 @@ export const RootPanelScreen = ({ onLogout }) => {
   const [pendingAction, setPendingAction] = useState(null); // 'restore' | 'cancelTimer'
   const [localTime, setLocalTime] = useState(new Date());
   const [bypassCode, setBypassCodeState] = useState('');
+  const [activeTab, setActiveTab] = useState('status'); // 'status' | 'server' | 'security'
 
   // --- API URL States & Helpers ---
   const parseApiUrlString = (urlStr) => {
@@ -409,275 +410,320 @@ export const RootPanelScreen = ({ onLogout }) => {
         </View>
       </View>
 
+      {/* Tab Selector Bar */}
+      <View style={{
+        flexDirection: 'row',
+        backgroundColor: '#111827',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 8,
+      }}>
+        {[
+          { id: 'status', label: 'Estado' },
+          { id: 'server', label: 'Servidor' },
+          { id: 'security', label: 'Seguridad' },
+        ].map((t) => (
+          <TouchableOpacity
+            key={t.id}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              alignItems: 'center',
+              borderBottomWidth: 2,
+              borderBottomColor: activeTab === t.id ? COLORS.primary : 'transparent',
+            }}
+            onPress={() => setActiveTab(t.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={{
+              color: activeTab === t.id ? COLORS.primaryLight : COLORS.textSecondary,
+              fontSize: 13,
+              fontWeight: '800',
+            }}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
-        {/* ─── Estado Actual ────────────────────────────────────── */}
-        <GlassCard style={[
-          styles.statusCard,
-          isBlocked ? { borderColor: 'rgba(239,68,68,0.25)' } : { borderColor: 'rgba(52,211,153,0.25)' }
-        ]}>
-          <View style={styles.statusCardHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Activity size={14} color={COLORS.textMuted} />
-              <Text style={styles.statusCardTitle}>Estado de la Aplicación</Text>
-            </View>
-            <TouchableOpacity onPress={loadStatus} style={styles.refreshBtn} disabled={loading} activeOpacity={0.7}>
-              <RefreshCw size={13} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 14 }} />
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-              <View style={[
-                styles.statusIconCircle,
-                isBlocked
-                  ? { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.25)' }
-                  : { backgroundColor: 'rgba(52,211,153,0.1)', borderColor: 'rgba(52,211,153,0.25)' }
-              ]}>
-                {isBlocked ? <AlertTriangle size={20} color="#f87171" /> : <CheckCircle size={20} color="#34d399" />}
+        {/* ─── PANELES DE ESTADO ─────────────────────────────────── */}
+        {activeTab === 'status' && (
+          <>
+            {/* ─── Estado Actual ────────────────────────────────────── */}
+            <GlassCard style={[
+              styles.statusCard,
+              isBlocked ? { borderColor: 'rgba(239,68,68,0.25)' } : { borderColor: 'rgba(52,211,153,0.25)' }
+            ]}>
+              <View style={styles.statusCardHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Activity size={14} color={COLORS.textMuted} />
+                  <Text style={styles.statusCardTitle}>Estado de la Aplicación</Text>
+                </View>
+                <TouchableOpacity onPress={loadStatus} style={styles.refreshBtn} disabled={loading} activeOpacity={0.7}>
+                  <RefreshCw size={13} color={COLORS.textSecondary} />
+                </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.statusValueText, isBlocked ? { color: '#f87171' } : { color: '#34d399' }]}>
-                  {isBlocked ? 'Desactivada / Bloqueada' : 'Activa'}
-                </Text>
+
+              {loading ? (
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 14 }} />
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                  <View style={[
+                    styles.statusIconCircle,
+                    isBlocked
+                      ? { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.25)' }
+                      : { backgroundColor: 'rgba(52,211,153,0.1)', borderColor: 'rgba(52,211,153,0.25)' }
+                  ]}>
+                    {isBlocked ? <AlertTriangle size={20} color="#f87171" /> : <CheckCircle size={20} color="#34d399" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.statusValueText, isBlocked ? { color: '#f87171' } : { color: '#34d399' }]}>
+                      {isBlocked ? 'Desactivada / Bloqueada' : 'Activa'}
+                    </Text>
+                    {hasTimer && (
+                      <Text style={styles.timerHintText}>
+                        ⏱ Se desactivará: {formatDisableAt(appControl.disableAt)}
+                        {minutesRemaining !== null && ` (~${minutesRemaining} min)`}
+                      </Text>
+                    )}
+                    {!hasTimer && !isBlocked && (
+                      <Text style={styles.subtext}>Sin restricciones de tiempo</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </GlassCard>
+
+            {/* ─── Controles de Disponibilidad ──────────────────────── */}
+            <GlassCard style={styles.card}>
+              <Text style={styles.sectionTitle}>Control de Disponibilidad</Text>
+
+              <View style={{ gap: 8, marginTop: 4 }}>
+                {!isBlocked && (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' }]}
+                    onPress={() => doAction('disable')}
+                    disabled={actionLoading}
+                    activeOpacity={0.8}
+                  >
+                    <Power size={16} color="#f87171" />
+                    <Text style={[styles.actionBtnText, { color: '#f87171' }]}>Desactivar aplicación ahora</Text>
+                  </TouchableOpacity>
+                )}
+
+                {isBlocked && (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: 'rgba(52,211,153,0.08)', borderColor: 'rgba(52,211,153,0.25)' }]}
+                    onPress={handleRestoreClick}
+                    disabled={actionLoading}
+                    activeOpacity={0.8}
+                  >
+                    <CheckCircle size={16} color="#34d399" />
+                    <Text style={[styles.actionBtnText, { color: '#34d399' }]}>Reactivar aplicación</Text>
+                    <View style={styles.actionBtnLockIcon}>
+                      <Lock size={10} color="#34d399" />
+                      <Text style={{ fontSize: 9, color: '#34d399', fontWeight: '800' }}>Confirmar</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
                 {hasTimer && (
-                  <Text style={styles.timerHintText}>
-                    ⏱ Se desactivará: {formatDisableAt(appControl.disableAt)}
-                    {minutesRemaining !== null && ` (~${minutesRemaining} min)`}
-                  </Text>
-                )}
-                {!hasTimer && !isBlocked && (
-                  <Text style={styles.subtext}>Sin restricciones de tiempo</Text>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: 'rgba(251,191,36,0.06)', borderColor: 'rgba(251,191,36,0.2)' }]}
+                    onPress={handleCancelTimerClick}
+                    disabled={actionLoading}
+                    activeOpacity={0.8}
+                  >
+                    <RefreshCw size={16} color="#fbbf24" />
+                    <Text style={[styles.actionBtnText, { color: '#fbbf24' }]}>Cancelar temporizador</Text>
+                    <View style={styles.actionBtnLockIcon}>
+                      <Lock size={10} color="#fbbf24" />
+                      <Text style={{ fontSize: 9, color: '#fbbf24', fontWeight: '800' }}>Confirmar</Text>
+                    </View>
+                  </TouchableOpacity>
                 )}
               </View>
-            </View>
-          )}
-        </GlassCard>
+            </GlassCard>
 
-        {/* ─── Controles de Disponibilidad ──────────────────────── */}
-        <GlassCard style={styles.card}>
-          <Text style={styles.sectionTitle}>Control de Disponibilidad</Text>
-
-          <View style={{ gap: 8, marginTop: 4 }}>
+            {/* ─── Programar Desactivación ──────────────────────────── */}
             {!isBlocked && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.25)' }]}
-                onPress={() => doAction('disable')}
-                disabled={actionLoading}
-                activeOpacity={0.8}
-              >
-                <Power size={16} color="#f87171" />
-                <Text style={[styles.actionBtnText, { color: '#f87171' }]}>Desactivar aplicación ahora</Text>
-              </TouchableOpacity>
+              <GlassCard style={styles.card}>
+                <Text style={styles.sectionTitle}>Programar Desactivación</Text>
+                <Text style={styles.sectionDesc}>
+                  La app seguirá funcionando hasta que expire el tiempo. Al vencer, los usuarios verán una notificación de error y no podrán operar.
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <FormInput
+                      label="Minutos antes de desactivar"
+                      value={minutes}
+                      onChangeText={setMinutes}
+                      placeholder="ej: 30"
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.scheduleBtn,
+                      (!minutes || actionLoading) && { opacity: 0.5 }
+                    ]}
+                    onPress={handleSchedule}
+                    disabled={!minutes || actionLoading}
+                    activeOpacity={0.8}
+                  >
+                    <Clock size={13} color="#fbbf24" />
+                    <Text style={styles.scheduleBtnText}>Programar</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
             )}
 
+            {/* Aviso informativo */}
             {isBlocked && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: 'rgba(52,211,153,0.08)', borderColor: 'rgba(52,211,153,0.25)' }]}
-                onPress={handleRestoreClick}
-                disabled={actionLoading}
-                activeOpacity={0.8}
-              >
-                <CheckCircle size={16} color="#34d399" />
-                <Text style={[styles.actionBtnText, { color: '#34d399' }]}>Reactivar aplicación</Text>
-                <View style={styles.actionBtnLockIcon}>
-                  <Lock size={10} color="#34d399" />
-                  <Text style={{ fontSize: 9, color: '#34d399', fontWeight: '800' }}>Confirmar</Text>
-                </View>
-              </TouchableOpacity>
+              <View style={styles.disabledBanner}>
+                <AlertTriangle size={15} color="#f87171" style={{ marginRight: 6, marginTop: 1 }} />
+                <Text style={styles.disabledBannerText}>
+                  Todos los usuarios verán el modal de error y la app estará suspendida. La app se reactivará solo cuando ingreses tus credenciales root.
+                </Text>
+              </View>
             )}
+          </>
+        )}
 
-            {hasTimer && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: 'rgba(251,191,36,0.06)', borderColor: 'rgba(251,191,36,0.2)' }]}
-                onPress={handleCancelTimerClick}
-                disabled={actionLoading}
-                activeOpacity={0.8}
-              >
-                <RefreshCw size={16} color="#fbbf24" />
-                <Text style={[styles.actionBtnText, { color: '#fbbf24' }]}>Cancelar temporizador</Text>
-                <View style={styles.actionBtnLockIcon}>
-                  <Lock size={10} color="#fbbf24" />
-                  <Text style={{ fontSize: 9, color: '#fbbf24', fontWeight: '800' }}>Confirmar</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        </GlassCard>
-
-        {/* ─── Programar Desactivación ──────────────────────────── */}
-        {!isBlocked && (
+        {/* ─── CÓDIGO DE SEGURIDAD (BYPASS) ─────────────────────── */}
+        {activeTab === 'security' && (
           <GlassCard style={styles.card}>
-            <Text style={styles.sectionTitle}>Programar Desactivación</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Lock size={15} color={COLORS.primaryLight} />
+              <Text style={styles.sectionTitleInline}>Código de Recuperación</Text>
+            </View>
             <Text style={styles.sectionDesc}>
-              La app seguirá funcionando hasta que expire el tiempo. Al vencer, los usuarios verán una notificación de error y no podrán operar.
+              Código de texto utilizado para desbloquear la configuración de red en la pantalla de inicio de sesión.
             </Text>
 
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
-              <View style={{ flex: 1 }}>
-                <FormInput
-                  label="Minutos antes de desactivar"
-                  value={minutes}
-                  onChangeText={setMinutes}
-                  placeholder="ej: 30"
-                  keyboardType="numeric"
-                />
+            <FormInput
+              label="Código Secreto"
+              value={bypassCode}
+              onChangeText={setBypassCodeState}
+              placeholder="1005199611712301977"
+              autoCapitalize="none"
+            />
+
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: COLORS.primary, borderColor: COLORS.primaryLight, marginTop: 8 }]}
+              onPress={handleSaveBypassCode}
+              disabled={actionLoading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.btnInner}>
+                <Save size={14} color="#fff" />
+                <Text style={[styles.actionBtnText, { color: '#fff' }]}>Guardar Código</Text>
               </View>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
+
+        {/* ─── CONFIGURACIÓN DEL SERVIDOR API ───────────────────── */}
+        {activeTab === 'server' && (
+          <GlassCard style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <Server size={15} color={COLORS.primaryLight} />
+              <Text style={styles.sectionTitleInline}>Servidor de API</Text>
+            </View>
+            <Text style={styles.sectionDesc}>
+              Dirección IP o dominio de tu servidor XAMPP/Vercel. Todos los datos se cargan desde aquí.
+            </Text>
+
+            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 }}>Protocolo</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {['http://', 'https://'].map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={{
+                    flex: 1,
+                    height: 38,
+                    borderRadius: 8,
+                    backgroundColor: apiProtocol === p ? COLORS.primary : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: apiProtocol === p ? COLORS.primaryLight : 'rgba(255,255,255,0.08)',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onPress={() => setApiProtocol(p)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <FormInput
+              label="Servidor (IP o Dominio)"
+              value={apiHost}
+              onChangeText={setApiHost}
+              placeholder="192.168.1.103 o tu-app.vercel.app"
+              autoCapitalize="none"
+            />
+
+            <FormInput
+              label="Puerto (Opcional)"
+              value={apiPort}
+              onChangeText={setApiPort}
+              placeholder="3000"
+              keyboardType="numeric"
+            />
+
+            <FormInput
+              label="Ruta Base (Path)"
+              value={apiPath}
+              onChangeText={setApiPath}
+              placeholder="/api"
+              autoCapitalize="none"
+            />
+
+            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4, marginBottom: 12 }}>
+              URL Generada: <Text style={{ color: COLORS.primaryLight, fontWeight: '700' }}>{getBuiltApiUrl() || 'Incompleta'}</Text>
+            </Text>
+
+            {apiStatus === 'ok' && (
+              <View style={styles.apiStatusOk}>
+                <CheckCircle size={13} color={COLORS.successLight} />
+                <Text style={styles.apiStatusOkText}>Conexión exitosa con el servidor ✓</Text>
+              </View>
+            )}
+            {apiStatus === 'error' && (
+              <View style={styles.apiStatusError}>
+                <Wifi size={13} color={COLORS.dangerLight} />
+                <Text style={styles.apiStatusErrorText}>No se pudo conectar al servidor.</Text>
+              </View>
+            )}
+
+            <View style={styles.apiActions}>
               <TouchableOpacity
-                style={[
-                  styles.scheduleBtn,
-                  (!minutes || actionLoading) && { opacity: 0.5 }
-                ]}
-                onPress={handleSchedule}
-                disabled={!minutes || actionLoading}
+                style={[styles.testBtn, apiChecking && { opacity: 0.6 }]}
+                onPress={handleCheckApi}
+                disabled={apiChecking}
                 activeOpacity={0.8}
               >
-                <Clock size={13} color="#fbbf24" />
-                <Text style={styles.scheduleBtnText}>Programar</Text>
+                {apiChecking
+                  ? <ActivityIndicator size="small" color={COLORS.primaryLight} />
+                  : <View style={styles.btnInner}><Wifi size={13} color={COLORS.primaryLight} /><Text style={styles.testBtnText}>Probar</Text></View>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveApiBtn, apiSaving && { opacity: 0.6 }]}
+                onPress={handleSaveApiUrl}
+                disabled={apiSaving}
+                activeOpacity={0.8}
+              >
+                {apiSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <View style={styles.btnInner}><Save size={13} color="#fff" /><Text style={styles.saveApiBtnText}>Guardar y Conectar</Text></View>}
               </TouchableOpacity>
             </View>
           </GlassCard>
         )}
-
-        {/* Aviso informativo */}
-        {isBlocked && (
-          <View style={styles.disabledBanner}>
-            <AlertTriangle size={15} color="#f87171" style={{ marginRight: 6, marginTop: 1 }} />
-            <Text style={styles.disabledBannerText}>
-              Todos los usuarios verán el modal de error y la app estará suspendida. La app se reactivará solo cuando ingreses tus credenciales root.
-            </Text>
-          </View>
-        )}
-
-        {/* ─── Código de Recuperación (Bypass) ───────────────── */}
-        <GlassCard style={styles.card}>
-          <View style={styles.sectionHeaderRow}>
-            <Lock size={15} color={COLORS.primaryLight} />
-            <Text style={styles.sectionTitleInline}>Código de Recuperación</Text>
-          </View>
-          <Text style={styles.sectionDesc}>
-            Código de texto utilizado para desbloquear la configuración de red en la pantalla de inicio de sesión.
-          </Text>
-
-          <FormInput
-            label="Código Secreto"
-            value={bypassCode}
-            onChangeText={setBypassCodeState}
-            placeholder="1005199611712301977"
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: COLORS.primary, borderColor: COLORS.primaryLight, marginTop: 8 }]}
-            onPress={handleSaveBypassCode}
-            disabled={actionLoading}
-            activeOpacity={0.8}
-          >
-            <View style={styles.btnInner}>
-              <Save size={14} color="#fff" />
-              <Text style={[styles.actionBtnText, { color: '#fff' }]}>Guardar Código</Text>
-            </View>
-          </TouchableOpacity>
-        </GlassCard>
-
-        {/* ─── URL del Servidor ────────────────────────────────── */}
-        <GlassCard style={styles.card}>
-          <View style={styles.sectionHeaderRow}>
-            <Server size={15} color={COLORS.primaryLight} />
-            <Text style={styles.sectionTitleInline}>Servidor de API</Text>
-          </View>
-          <Text style={styles.sectionDesc}>
-            Dirección IP o dominio de tu servidor XAMPP/Vercel. Todos los datos se cargan desde aquí.
-          </Text>
-
-          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 }}>Protocolo</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            {['http://', 'https://'].map((p) => (
-              <TouchableOpacity
-                key={p}
-                style={{
-                  flex: 1,
-                  height: 38,
-                  borderRadius: 8,
-                  backgroundColor: apiProtocol === p ? COLORS.primary : 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: apiProtocol === p ? COLORS.primaryLight : 'rgba(255,255,255,0.08)',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                onPress={() => setApiProtocol(p)}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <FormInput
-            label="Servidor (IP o Dominio)"
-            value={apiHost}
-            onChangeText={setApiHost}
-            placeholder="192.168.1.103 o tu-app.vercel.app"
-            autoCapitalize="none"
-          />
-
-          <FormInput
-            label="Puerto (Opcional)"
-            value={apiPort}
-            onChangeText={setApiPort}
-            placeholder="3000"
-            keyboardType="numeric"
-          />
-
-          <FormInput
-            label="Ruta Base (Path)"
-            value={apiPath}
-            onChangeText={setApiPath}
-            placeholder="/api"
-            autoCapitalize="none"
-          />
-
-          <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4, marginBottom: 12 }}>
-            URL Generada: <Text style={{ color: COLORS.primaryLight, fontWeight: '700' }}>{getBuiltApiUrl() || 'Incompleta'}</Text>
-          </Text>
-
-          {apiStatus === 'ok' && (
-            <View style={styles.apiStatusOk}>
-              <CheckCircle size={13} color={COLORS.successLight} />
-              <Text style={styles.apiStatusOkText}>Conexión exitosa con el servidor ✓</Text>
-            </View>
-          )}
-          {apiStatus === 'error' && (
-            <View style={styles.apiStatusError}>
-              <Wifi size={13} color={COLORS.dangerLight} />
-              <Text style={styles.apiStatusErrorText}>No se pudo conectar al servidor.</Text>
-            </View>
-          )}
-
-          <View style={styles.apiActions}>
-            <TouchableOpacity
-              style={[styles.testBtn, apiChecking && { opacity: 0.6 }]}
-              onPress={handleCheckApi}
-              disabled={apiChecking}
-              activeOpacity={0.8}
-            >
-              {apiChecking
-                ? <ActivityIndicator size="small" color={COLORS.primaryLight} />
-                : <View style={styles.btnInner}><Wifi size={13} color={COLORS.primaryLight} /><Text style={styles.testBtnText}>Probar</Text></View>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveApiBtn, apiSaving && { opacity: 0.6 }]}
-              onPress={handleSaveApiUrl}
-              disabled={apiSaving}
-              activeOpacity={0.8}
-            >
-              {apiSaving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <View style={styles.btnInner}><Save size={13} color="#fff" /><Text style={styles.saveApiBtnText}>Guardar y Conectar</Text></View>}
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
       </ScrollView>
 
       {/* Credentials Modal */}

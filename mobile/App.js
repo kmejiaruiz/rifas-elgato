@@ -433,7 +433,7 @@ const AppContent = () => {
           const message = `• Solicitado por: ${p.created_by_name}\n• Período: ${formatDrawDate(p.start_date)} al ${formatDrawDate(p.end_date)}\n• Ventas Totales: ${formatNIO(p.total_sold)}\n• Premios Pagados: ${formatNIO(p.prizes_total)}\n• Comisión Generada: ${formatNIO(p.commission_amount)}\n• Neto a Pagar: ${formatNIO(p.net_salary)}\n• Generado el: ${formattedDate}\n\n¿Confirmas que has recibido el dinero de este pago de salario?`;
 
           Alert.alert(
-            '💸 Confirmación de Pago',
+            'Confirmación de Pago',
             message,
             [
               { text: 'Aún no', style: 'cancel' },
@@ -442,7 +442,7 @@ const AppContent = () => {
                 onPress: async () => {
                   try {
                     await api.post('/users.php?confirm_pay=1', { paymentId: p.id });
-                    Alert.alert('✅ ¡Confirmado!', 'El pago ha sido marcado como recibido.');
+                    Alert.alert('Confirmado', 'El pago ha sido marcado como recibido.');
                   } catch (err) {
                     Alert.alert('Error', err.message || 'No se pudo confirmar el pago.');
                   }

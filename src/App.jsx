@@ -390,7 +390,7 @@ const PendingPaymentsAlert = () => {
         position: 'relative'
       }}>
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>💸</span> Confirmación de Pago
+          Confirmación de Pago
         </h3>
         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
           El administrador ha solicitado registrar un pago de nómina para tu usuario. Por favor, verifica y confirma el recibido.

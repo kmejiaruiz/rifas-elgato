@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // AppStatusContext — estado de disponibilidad de la app
 // Pollea cada 30s para detectar cambios del usuario root
 // ============================================================
@@ -26,7 +26,7 @@ export const AppStatusProvider = ({ children }) => {
     }
     try {
       // Usamos settings.php público (accesible a todos los roles autenticados)
-      const { settings } = await api.get('/settings.php');
+      const { settings } = await api.get('/settings');
       const status    = settings.appStatus    ?? 'active';
       const disableAt = settings.appDisableAt ?? 'never';
 

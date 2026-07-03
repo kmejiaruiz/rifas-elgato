@@ -1328,7 +1328,7 @@ const SalariesTab = () => {
     setLoading(true);
     NProgress.start();
     try {
-      const url = `/users.php?report=1&start_date=${sDate}&end_date=${eDate}`;
+      const url = `/users?report=1&start_date=${sDate}&end_date=${eDate}`;
       const res = await api.get(url);
       const rData = res.report || [];
       setReport(rData);
@@ -1349,6 +1349,20 @@ const SalariesTab = () => {
       NProgress.done();
     }
   }, []);
+
+  const handleCancelPayment = async (paymentId) => {
+    if (!window.confirm('¿Está seguro de que desea cancelar esta solicitud de pago pendiente?')) return;
+    NProgress.start();
+    try {
+      const res = await api.post('/users?cancel_pay=1', { paymentId });
+      toast.success(res.message || 'Pago cancelado con éxito.');
+      setPaymentsHistory(res.payments || []);
+    } catch (err) {
+      toast.error('Error al cancelar pago: ' + err.message);
+    } finally {
+      NProgress.done();
+    }
+  };
 
   // Carga inicial
   useEffect(() => {
@@ -1564,6 +1578,7 @@ const SalariesTab = () => {
 
             const isPeriodPaid = paymentsHistory.some(p => 
               p.seller_id === u.id &&
+              (p.status === 'confirmed' || p.status === 'pending') &&
               !(endDateInput < p.start_date || startDateInput > p.end_date)
             );
 
@@ -1574,13 +1589,14 @@ const SalariesTab = () => {
               }
               try {
                 NProgress.start();
-                const res = await api.post('/users.php?pay=1', {
+                const res = await api.post('/users?pay=1', {
                   seller_id: u.id,
                   start_date: startDateInput,
                   end_date: endDateInput,
                   total_sold: totalSold,
                   prizes_total: prizesTotal,
-                  commission_amount: calculatedSalary
+                  commission_amount: calculatedSalary,
+                  net_salary: calculatedSalary
                 });
                 toast.success(res.message || "Pago registrado con éxito.");
                 // Actualizar reporte
@@ -2069,35 +2085,85 @@ const SalariesTab = () => {
                     }
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 180, overflowY: 'auto', paddingRight: '4px' }}>
-                        {userPayments.map(p => (
-                          <div key={p.id} style={{
-                            background: 'rgba(255,255,255,0.01)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            padding: '0.65rem 0.85rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            fontSize: '0.75rem'
-                          }}>
-                            <div>
-                              <div style={{ fontWeight: 700, color: '#fff' }}>
-                                Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
+                        {userPayments.map(p => {
+                          let statusLabel = 'Pendiente';
+                          let statusColor = '#f59e0b';
+                          let statusBg = 'rgba(245, 158, 11, 0.12)';
+                          if (p.status === 'confirmed') {
+                            statusLabel = 'Confirmado';
+                            statusColor = '#10b981';
+                            statusBg = 'rgba(16, 185, 129, 0.12)';
+                          } else if (p.status === 'rejected') {
+                            statusLabel = 'Rechazado';
+                            statusColor = '#ef4444';
+                            statusBg = 'rgba(239, 68, 68, 0.12)';
+                          } else if (p.status === 'cancelled') {
+                            statusLabel = 'Cancelado';
+                            statusColor = '#9ca3af';
+                            statusBg = 'rgba(107, 114, 128, 0.12)';
+                          }
+
+                          return (
+                            <div key={p.id} style={{
+                              background: 'rgba(255,255,255,0.01)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              padding: '0.65rem 0.85rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '0.75rem',
+                              gap: '0.5rem'
+                            }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
+                                  <span style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: 800,
+                                    textTransform: 'uppercase',
+                                    color: statusColor,
+                                    backgroundColor: statusBg,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    border: `1px solid rgba(${statusColor === '#10b981' ? '16,185,129' : statusColor === '#ef4444' ? '239,68,68' : statusColor === '#f59e0b' ? '245,158,11' : '107,114,128'}, 0.2)`
+                                  }}>
+                                    {statusLabel}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                  Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
+                                </div>
                               </div>
-                              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
+                              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                <div style={{ fontWeight: 800, color: 'var(--accent-light)' }}>
+                                  Pagado: {formatNIO(parseFloat(p.commission_amount))}
+                                </div>
+                                <div style={{ fontSize: '0.58rem', color: 'var(--text-secondary)' }}>
+                                  {new Date(p.paid_at).toLocaleString('es-NI')}
+                                </div>
+                                {p.status === 'pending' && (
+                                  <button
+                                    onClick={() => handleCancelPayment(p.id)}
+                                    style={{
+                                      marginTop: 4,
+                                      padding: '2px 8px',
+                                      fontSize: '0.62rem',
+                                      fontWeight: 800,
+                                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                      color: '#f87171',
+                                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Cancelar
+                                  </button>
+                                )}
                               </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontWeight: 800, color: 'var(--accent-light)' }}>
-                                Pagado: {formatNIO(parseFloat(p.commission_amount))}
-                              </div>
-                              <div style={{ fontSize: '0.58rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                                {new Date(p.paid_at).toLocaleString('es-NI')}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })()}

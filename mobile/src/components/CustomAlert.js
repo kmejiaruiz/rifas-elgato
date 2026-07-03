@@ -19,6 +19,9 @@ export const CustomAlert = ({
   type = 'info', // 'info' | 'success' | 'error' | 'warning'
   progress = null, // null o número del 0 al 100
   progressText = '',
+  extraText,
+  onExtra,
+  extraVariant,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
@@ -82,20 +85,31 @@ export const CustomAlert = ({
 
           {/* Fila de botones */}
           {progress === null && (
-            <View style={styles.buttonRow}>
+            <View style={[
+              styles.buttonRow,
+              extraText ? { flexDirection: 'column', gap: 8 } : null
+            ]}>
               {cancelText && (
                 <CustomButton
                   title={cancelText}
                   variant="ghost"
                   onPress={onCancel || onClose}
-                  style={[styles.btn, { marginRight: 8 }]}
+                  style={extraText ? { width: '100%', height: 40 } : [styles.btn, { marginRight: 8 }]}
+                />
+              )}
+              {extraText && (
+                <CustomButton
+                  title={extraText}
+                  variant={extraVariant || 'danger'}
+                  onPress={onExtra}
+                  style={{ width: '100%', height: 40 }}
                 />
               )}
               <CustomButton
                 title={confirmText}
                 variant={type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'primary'}
                 onPress={onConfirm || onClose}
-                style={styles.btn}
+                style={extraText ? { width: '100%', height: 40 } : styles.btn}
               />
             </View>
           )}

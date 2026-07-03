@@ -2,12 +2,11 @@
   RewriteEngine On
   RewriteBase /
 
-  # 1. Dejar pasar las peticiones a la API directamente
-  RewriteCond %{REQUEST_URI} ^/api/ [OR]
-  RewriteCond %{REQUEST_URI} ^/api$
+  # 1. Dejar pasar archivos y directorios reales (assets, imágenes, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 2. Redirigir el resto de peticiones al directorio compiled dist/
-  RewriteCond %{REQUEST_URI} !^/dist/
-  RewriteRule ^(.*)$ dist/$1 [L]
+  # 2. Todo lo demás → index.html (React Router se encarga del resto)
+  RewriteRule ^ index.html [L]
 </IfModule>

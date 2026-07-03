@@ -21,7 +21,7 @@ const initialState = {
   sales: [],
   dailySummary: { total: 0, count: 0, byType: {}, cancelled: 0 },
   settings: {
-    businessName: 'Amaranto',
+    businessName: 'Zentric',
     printerName: null,
     currency: '₡',
     autoprint: true,

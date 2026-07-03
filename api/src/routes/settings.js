@@ -31,10 +31,15 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// ─── PUT /api/settings ➔ Guardar configuraciones generales (Admin) 
+// ─── PUT /api/settings ➔ Guardar configuraciones generales (Admin/Root) 
 router.put('/', requireAdmin, async (req, res) => {
   const b = req.body;
   const db = await getDB();
+
+  // Validar que solo root pueda modificar el código de bypass (bypassCode)
+  if (b.bypassCode !== undefined && req.user.role !== 'root') {
+    return res.status(403).json({ error: 'Acceso denegado: solo el usuario root puede cambiar el código de recuperación.' });
+  }
 
   // Lista blanca de llaves permitidas para evitar contaminación
   const allowedKeys = ['businessName', 'currency', 'autoprint', 'drawCloseMinutes', 'carousel_images', 'bypassCode'];

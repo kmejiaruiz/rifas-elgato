@@ -1,4 +1,4 @@
-// ─── Página: Configuración ────────────────────────────────────
+﻿// ─── Página: Configuración ────────────────────────────────────
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PrinterConnect } from '../components/printer/PrinterStatus';
@@ -52,7 +52,7 @@ export const Settings = () => {
             <p className="section-title">Aplicación Web (PWA)</p>
             <div className="card">
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Instala Amaranto en tu dispositivo para ingresar rápidamente desde el escritorio y usar soporte sin conexión.
+                Instala Zentric en tu dispositivo para ingresar rápidamente desde el escritorio y usar soporte sin conexión.
               </p>
               <button className="btn btn-primary btn-full" onClick={installPwa}>
                 Instalar Aplicación
@@ -81,7 +81,7 @@ export const Settings = () => {
     if (!ok) return;
     try {
       const { api } = await import('../services/apiService');
-      await api.delete('/sales.php');
+      await api.delete('/sales');
       toast.success('Todos los datos eliminados');
       setTimeout(() => window.location.reload(), 800);
     } catch {
@@ -206,7 +206,7 @@ export const Settings = () => {
         }
         
         const base = import.meta.env.DEV ? '/api' : `${import.meta.env.BASE_URL || '/'}api`;
-        const url = `${base}/upload.php`.replace(/\/+/g, '/');
+        const url = `${base}/upload`.replace(/\/+/g, '/');
         
         const res = await fetch(url, {
           method: 'POST',
@@ -280,7 +280,7 @@ export const Settings = () => {
             className="form-control"
             value={form.businessName}
             onChange={(e) => setForm((f) => ({ ...f, businessName: e.target.value }))}
-            placeholder="Ej: Amaranto"
+            placeholder="Ej: Zentric"
           />
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             Aparece en el encabezado del boleto impreso
@@ -506,7 +506,7 @@ export const Settings = () => {
           <p className="section-title">Aplicación Web (PWA)</p>
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Instala Amaranto en tu dispositivo para ingresar rápidamente desde el escritorio y usar soporte sin conexión.
+              Instala Zentric en tu dispositivo para ingresar rápidamente desde el escritorio y usar soporte sin conexión.
             </p>
             <button className="btn btn-primary btn-full" onClick={installPwa}>
               Instalar Aplicación

@@ -1,7 +1,8 @@
 // ─── Página: Login ────────────────────────────────────────────
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Ticket, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
+import zentricIsotipo from '../assets/zentric_isotipo.png';
 
 export const LoginPage = () => {
   const { login } = useAuth();
@@ -52,21 +53,18 @@ export const LoginPage = () => {
 
       {/* Logo */}
       <div style={{ textAlign: 'center', marginBottom: '2.5rem', position: 'relative' }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: '24px', margin: '0 auto 1rem',
-          background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 40px rgba(124,58,237,0.4)',
-        }}>
-          <Ticket size={36} color="#fff" />
-        </div>
+        <img
+          src={zentricIsotipo}
+          alt="Zentric"
+          style={{ width: 90, height: 90, objectFit: 'contain', margin: '0 auto 1.25rem', display: 'block', filter: 'drop-shadow(0 0 18px rgba(59,130,246,0.5))' }}
+        />
         <h1 style={{
           fontSize: '2rem', fontWeight: 900,
           background: 'linear-gradient(90deg, #f1f5f9, #c084fc)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: '0.25rem',
         }}>
-          Amaranto
+          Zentric
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Inicia sesión para continuar

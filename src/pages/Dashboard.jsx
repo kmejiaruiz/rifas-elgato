@@ -50,7 +50,7 @@ export const Dashboard = () => {
     {
       type: 'default',
       background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-      title: 'Sistema de Ventas Amaranto',
+      title: 'Sistema de Ventas Zentric',
       subtitle: 'Gestiona tus sorteos y boletos de forma rápida y sencilla.'
     },
     {

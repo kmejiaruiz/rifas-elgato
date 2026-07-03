@@ -7,13 +7,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, Alert, ActivityIndicator, ScrollView, Platform,
+  Share, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ChevronLeft, Search, RefreshCw, X, Printer, ShieldAlert,
   ChevronDown, ChevronUp, Trophy, Lock, Ticket, TrendingUp,
-  XCircle, CheckCircle,
+  XCircle, CheckCircle, Eye, Share2,
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,7 @@ import { getSalesByFilter, getResults } from '../services/storageService';
 import { getLotteryById, formatLotteryNumber, LOTTERY_LIST } from '../data/lotteryTypes';
 import { formatHourAmPm } from '../services/gameService';
 import { HeaderClock } from '../components/HeaderClock';
+import { DigitalTicketModal } from '../components/DigitalTicketModal';
 
 // ─── Helpers ──────────────────────────────────────────────────
 const today = () => new Date().toLocaleDateString('sv-SE');
@@ -86,7 +88,7 @@ const checkSaleAnnulmentStatus = (sale, results, userRole) => {
     return { isCancelled: true, canAnnul: false, isBlocked: false, requiresAdmin: false };
   }
   if (!sale.lines || sale.lines.length === 0) {
-    return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin: userRole !== 'admin' };
+    return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin: userRole !== 'admin' && userRole !== 'root' };
   }
 
   let hasAnnouncedDraw = false;
@@ -111,7 +113,7 @@ const checkSaleAnnulmentStatus = (sale, results, userRole) => {
     return { isCancelled: false, canAnnul: false, isBlocked: true, requiresAdmin: false, hasAnnouncedDraw: true };
   }
 
-  const requiresAdmin = userRole !== 'admin' || hasAnnouncedDraw;
+  const requiresAdmin = (userRole !== 'admin' && userRole !== 'root') || hasAnnouncedDraw;
   return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin, hasAnnouncedDraw };
 };
 
@@ -124,7 +126,7 @@ const STATUS_FILTERS = [
 ];
 
 // ─── Modal de detalle del boleto ─────────────────────────────
-const SaleDetailModal = ({ visible, sale, settings, results, userRole, onClose, onReprint, onPayPrize, onAnnul }) => {
+const SaleDetailModal = ({ visible, sale, settings, results, userRole, onClose, onReprint, onPayPrize, onAnnul, onOpenDigital }) => {
   const insets = useSafeAreaInsets();
   if (!sale) return null;
   const lottery = getLotteryById(sale.lotteryId || sale.lottery_id);
@@ -306,6 +308,30 @@ const SaleDetailModal = ({ visible, sale, settings, results, userRole, onClose, 
               </Text>
             </View>
 
+            {/* Ver Boleto Digital */}
+            <TouchableOpacity 
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 12,
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(59, 130, 246, 0.25)',
+                borderRadius: RADIUS.md,
+                marginTop: 16,
+                marginBottom: 8,
+              }}
+              activeOpacity={0.8}
+              onPress={onOpenDigital}
+            >
+              <Eye size={16} color={COLORS.primaryLight} />
+              <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.primaryLight }}>
+                Ver Boleto Digital (Compartir)
+              </Text>
+            </TouchableOpacity>
+
             {/* Acciones */}
             {!isCancelled && (
               <View style={styles.detailActions}>
@@ -347,12 +373,22 @@ const SaleDetailModal = ({ visible, sale, settings, results, userRole, onClose, 
   );
 };
 
+// Reusable DigitalTicketModal is imported from '../components/DigitalTicketModal'
+
 // ─── Modal de autenticación de admin (para anular) ────────────
 const AdminAuthModal = ({ visible, hasAnnouncedDraw, onSubmit, onCancel }) => {
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  React.useEffect(() => {
+    if (!visible) {
+      setAdminUser('');
+      setAdminPass('');
+      setAuthError('');
+    }
+  }, [visible]);
 
   const handleSubmit = async () => {
     if (!adminUser.trim() || !adminPass) {
@@ -424,6 +460,7 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
 
   const [selectedSale, setSelectedSale] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [digitalModalVisible, setDigitalModalVisible] = useState(false);
   const [authModalData, setAuthModalData] = useState(null); // { saleId, hasAnnouncedDraw }
   const [expandedId, setExpandedId] = useState(null);
 
@@ -917,6 +954,15 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
         }}
         onPayPrize={() => handlePayPrize(selectedSale)}
         onAnnul={() => handleAnnulClick(selectedSale)}
+        onOpenDigital={() => setDigitalModalVisible(true)}
+      />
+
+      {/* Modal de boleto digital */}
+      <DigitalTicketModal
+        visible={digitalModalVisible}
+        sale={selectedSale}
+        settings={settings}
+        onClose={() => setDigitalModalVisible(false)}
       />
 
       {/* Modal de auth admin */}

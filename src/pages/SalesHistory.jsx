@@ -73,6 +73,14 @@ export const SalesHistory = () => {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [selectedVoucherSale, setSelectedVoucherSale] = useState(null);
 
+  useEffect(() => {
+    if (!adminAuthModal) {
+      setAdminUsername('');
+      setAdminPassword('');
+      setAuthError('');
+    }
+  }, [adminAuthModal]);
+
   // Cargar lista de vendedores si es admin
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -163,7 +171,7 @@ export const SalesHistory = () => {
       return { isCancelled: true, canAnnul: false, isBlocked: false, requiresAdmin: false, hasAnnouncedDraw: false };
     }
     if (!sale.lines || sale.lines.length === 0) {
-      return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin: user?.role !== 'admin', hasAnnouncedDraw: false };
+      return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin: user?.role !== 'admin' && user?.role !== 'root', hasAnnouncedDraw: false };
     }
 
     let hasAnnouncedDraw = false;
@@ -192,7 +200,7 @@ export const SalesHistory = () => {
     }
 
     // Requiere admin si el sorteo ya fue anunciado, o si el usuario firmado NO es un administrador
-    const requiresAdmin = (user?.role !== 'admin') || hasAnnouncedDraw;
+    const requiresAdmin = (user?.role !== 'admin' && user?.role !== 'root') || hasAnnouncedDraw;
     return { isCancelled: false, canAnnul: true, isBlocked: false, requiresAdmin, hasAnnouncedDraw };
   };
 

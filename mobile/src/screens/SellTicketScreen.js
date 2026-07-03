@@ -19,6 +19,7 @@ import { CustomButton } from '../components/CustomButton';
 import { validateJugada, getLotteryById, formatLotteryNumber, LOTTERY_LIST } from '../data/lotteryTypes';
 import { getBlockedNumbers, getDisabledGames, getNextAvailableDraw, isDrawOpen, formatHourAmPm } from '../services/gameService';
 import { HeaderClock } from '../components/HeaderClock';
+import { DigitalTicketModal } from '../components/DigitalTicketModal';
 // ─── Helpers para Fechas y Sorteos ─────────────────────────────
 const getFecheaPlayValue = (line) => {
   if (!line) return '';
@@ -244,18 +245,29 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
 const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, selectedHour, selectedHours = [], totalMonto, loading, onConfirm, onCancel }) => {
   const insets = useSafeAreaInsets();
   if (!lottery) return null;
-  const isSummarized = jugadas.length > 10;
+  const isSummarized = jugadas.length > 5;
   let rangeText = '';
   let unitMonto = 0;
 
+  let missingNums = [];
   if (isSummarized) {
     if (lottery.id === 'fechea') {
       rangeText = `${jugadas.length} Fechas`;
     } else {
       const nums = jugadas.map(j => parseInt(j.numero, 10)).filter(n => !isNaN(n)).sort((a, b) => a - b);
-      rangeText = nums.length > 0
-        ? `De ${formatLotteryNumber(lottery.id, nums[0])} a ${formatLotteryNumber(lottery.id, nums[nums.length - 1])}`
-        : `${jugadas.length} números`;
+      if (nums.length > 0) {
+        const minNum = nums[0];
+        const maxNum = nums[nums.length - 1];
+        rangeText = `De ${formatLotteryNumber(lottery.id, minNum)} a ${formatLotteryNumber(lottery.id, maxNum)}`;
+        
+        for (let i = minNum; i <= maxNum; i++) {
+          if (!nums.includes(i)) {
+            missingNums.push(formatLotteryNumber(lottery.id, i));
+          }
+        }
+      } else {
+        rangeText = `${jugadas.length} números`;
+      }
     }
     unitMonto = parseFloat(jugadas[0]?.monto || 0);
   }
@@ -284,15 +296,45 @@ const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, sele
 
           <View style={styles.confirmDivider} />
 
+          {isSummarized && (
+            <View style={{
+              backgroundColor: 'rgba(234, 179, 8, 0.1)',
+              borderColor: 'rgba(234, 179, 8, 0.4)',
+              borderWidth: 1,
+              borderRadius: 8,
+              padding: 12,
+              flexDirection: 'row',
+              gap: 8,
+              marginBottom: 14,
+              alignItems: 'flex-start',
+            }}>
+              <AlertTriangle size={18} color="#eab308" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: '#fbbf24', fontWeight: '800', marginBottom: 2 }}>Aviso de Boleto Resumido:</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 15 }}>
+                  La cantidad de jugadas ({jugadas.length}) excede la norma de formato estándar. El boleto se generará en formato simplificado de rango para mejorar el diseño y ahorrar papel térmico.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {isSummarized ? (
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>SERIE / RANGO</Text>
-                <Text style={[styles.summaryValue, { color: '#fbbf24' }]}>{rangeText}</Text>
+                <Text style={[styles.summaryValue, { color: '#fbbf24', fontWeight: '800' }]}>{rangeText}</Text>
               </View>
+              {missingNums.length > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: COLORS.dangerLight }]}>OMITIDOS (CERRADOS)</Text>
+                  <Text style={[styles.summaryValue, { color: COLORS.dangerLight, fontWeight: '800', fontSize: 11 }]}>
+                    {missingNums.map(n => `#${n}`).join(', ')}
+                  </Text>
+                </View>
+              )}
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>TOTAL JUGADAS</Text>
-                <Text style={styles.summaryValue}>{jugadas.length}</Text>
+                <Text style={styles.summaryLabel}>TOTAL NÚMEROS</Text>
+                <Text style={styles.summaryValue}>{jugadas.length} jugadas</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>INV. POR NÚMERO</Text>
@@ -364,7 +406,7 @@ const generateTicketText = (sale, settings, lottery) => {
   const lines = sale.lines || [];
   const list = [
     '================================',
-    `        ${(settings.businessName || 'Amaranto').toUpperCase()}`,
+    `        ${(settings.businessName || 'Zentric').toUpperCase()}`,
     `    ${lottery.name}`,
     '================================',
     `Boleto: #${sale.id?.split('_').pop()?.toUpperCase()}`,
@@ -432,7 +474,7 @@ const generateWhatsAppText = (sale, settings, lottery) => {
   const dateStr = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const lines = sale.lines || [];
   const list = [
-    `🎟️ *${(settings.businessName || 'Amaranto').toUpperCase()}* 🎟️`,
+    `🎟️ *${(settings.businessName || 'Zentric').toUpperCase()}* 🎟️`,
     `━━━━━━━━━━━━━━━━━━━━━`,
     `*Boleto:* #${sale.id?.split('_').pop()?.toUpperCase()}`,
     `*Sorteo:* ${lottery.name} ${getDrawHoursText(sale) ? `(${getDrawHoursText(sale)})` : ''}`,
@@ -1205,262 +1247,13 @@ export const SellTicketScreen = ({ onNavigate }) => {
         onCancel={() => setShowConfirm(false)}
       />
 
-      {/* ─── Modal de Comprobante (Voucher) ────────────────────── */}
-      {/* ─── Modal de Comprobante (Voucher) ────────────────────── */}
-      {showVoucher && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
-          <View style={styles.modalBackdrop}>
-            <GlassCard style={styles.voucherModalCard}>
-              {/* Header controls (Opciones de Tema y Cerrar) */}
-              <View style={styles.voucherHeaderControls}>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <TouchableOpacity
-                    onPress={() => setVoucherTheme('digital')}
-                    style={[styles.themeBtn, voucherTheme === 'digital' && styles.themeBtnActive]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.themeBtnText, voucherTheme === 'digital' && styles.themeBtnTextActive]}>Digital</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setVoucherTheme('thermal')}
-                    style={[styles.themeBtn, voucherTheme === 'thermal' && styles.themeBtnActive]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.themeBtnText, voucherTheme === 'thermal' && styles.themeBtnTextActive]}>Térmico</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity onPress={() => setShowVoucher(false)} style={styles.closeIconBtn} activeOpacity={0.7}>
-                  <X size={18} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Contenedor del Boleto */}
-              <ScrollView
-                style={[
-                  styles.ticketWrapper,
-                  voucherTheme === 'digital' ? styles.ticketWrapperDigital : styles.ticketWrapperThermal
-                ]}
-                contentContainerStyle={{ padding: 14 }}
-              >
-                {lastSale && (() => {
-                  const game = getLotteryById(lastSale.lotteryId) || {};
-                  const now = new Date(lastSale.createdAt || new Date());
-                  const dateStr = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                  const lines = lastSale.lines || [];
-                  const cleanId = lastSale.id?.split('_').pop() || '';
-                  const qrValidationText = `--- TICKET OFICIAL ---\nID: ${cleanId}\nEmpresa: ${settings.businessName || 'Amaranto'}\nSorteo: ${game.name || 'Rifa'}\nTotal: ${settings.currency || 'NIO '} ${parseFloat(lastSale.monto).toFixed(2)}\nFecha: ${dateStr}\nVendedor: ${lastSale.sellerName || user?.name || 'Vendedor'}\nSello: ORIGINAL_SECURE_VAL`;
-                  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrValidationText)}&margin=10`;
-
-                  return (
-                    <View ref={ticketRef} collapsable={false} style={{ alignItems: 'stretch', padding: 20, backgroundColor: voucherTheme === 'digital' ? '#0b0f19' : '#ffffff' }}>
-                      {/* Encabezado */}
-                      <Text style={[
-                        styles.ticketBusinessName,
-                        voucherTheme === 'digital' ? styles.ticketBusinessNameDigital : styles.ticketBusinessNameThermal
-                      ]}>
-                        {(settings.businessName || 'Amaranto').toUpperCase()}
-                      </Text>
-                      <Text style={[
-                        styles.ticketTitleLabel,
-                        voucherTheme === 'digital' ? styles.ticketTitleLabelDigital : styles.ticketTitleLabelThermal
-                      ]}>
-                        Comprobante Oficial
-                      </Text>
-                      <Text style={[
-                        styles.ticketMetaText,
-                        voucherTheme === 'digital' ? styles.ticketMetaTextDigital : styles.ticketMetaTextThermal
-                      ]}>
-                        Boleto: #{lastSale.id?.split('_').pop()?.toUpperCase()}
-                      </Text>
-                      
-                      {/* Info */}
-                      <View style={[
-                        styles.ticketInfoBox,
-                        voucherTheme === 'digital' ? styles.ticketInfoBoxDigital : styles.ticketInfoBoxThermal
-                      ]}>
-                        <View style={styles.ticketInfoRow}>
-                          <Text style={[styles.ticketInfoLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Sorteo:</Text>
-                          <Text style={[styles.ticketInfoValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>
-                            {game.name || 'Rifa'} {getDrawHoursText(lastSale) ? `(${getDrawHoursText(lastSale)})` : ''}
-                          </Text>
-                        </View>
-                        <View style={styles.ticketInfoRow}>
-                          <Text style={[styles.ticketInfoLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Fecha Venta:</Text>
-                          <Text style={[styles.ticketInfoValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{dateStr}</Text>
-                        </View>
-                        <View style={styles.ticketInfoRow}>
-                          <Text style={[styles.ticketInfoLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Fecha Sorteo:</Text>
-                          <Text style={[styles.ticketInfoValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{formatDrawDate(lastSale.lines?.[0]?.fecha || lastSale.drawDate)}</Text>
-                        </View>
-                        <View style={styles.ticketInfoRow}>
-                          <Text style={[styles.ticketInfoLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Vendedor:</Text>
-                          <Text style={[styles.ticketInfoValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{lastSale.sellerName || user?.name || 'Vendedor'}</Text>
-                        </View>
-                        {lastSale.comprador ? (
-                          <View style={[styles.ticketInfoRow, { borderTopWidth: 1, borderColor: voucherTheme === 'digital' ? 'rgba(168, 85, 247, 0.15)' : '#000', marginTop: 4, paddingTop: 4 }]}>
-                            <Text style={[styles.ticketInfoLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Cliente:</Text>
-                            <Text style={[styles.ticketInfoValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{lastSale.comprador}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {/* Separador */}
-                      <Text style={[
-                        styles.ticketDivider,
-                        voucherTheme === 'digital' ? styles.ticketDividerDigital : styles.ticketDividerThermal,
-                        voucherTheme === 'thermal' ? { color: '#000000' } : null
-                      ]}>
-                        --------------------------------
-                      </Text>
-
-                      {/* Lista de Jugadas o Serie */}
-                      <View style={{ marginBottom: 12 }}>
-                        {lines.length > 10 ? (() => {
-                          const unitM = parseFloat(lines[0]?.monto || 0);
-                          const winM = unitM * parseFloat(game.payoutMultiplier || 80);
-                          let rangeTxt = '';
-                          if (lastSale.lotteryId === 'fechea') {
-                            rangeTxt = `${lines.length} Fechas`;
-                          } else {
-                            const nums = lines.map(l => parseInt(l.numero, 10)).filter(n => !isNaN(n)).sort((a,b)=>a-b);
-                            if (nums.length > 0) {
-                              rangeTxt = `De ${nums[0]} a ${nums[nums.length-1]}`;
-                            } else {
-                              rangeTxt = `${lines.length} números`;
-                            }
-                          }
-
-                          return (
-                            <View style={[
-                              styles.ticketRangeCard,
-                              voucherTheme === 'digital' ? styles.ticketRangeCardDigital : styles.ticketRangeCardThermal
-                            ]}>
-                              <Text style={[styles.ticketRangeTitle, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Serie / Rango Adquirido</Text>
-                              <Text style={[styles.ticketRangeValue, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{rangeTxt}</Text>
-                              <View style={{ marginTop: 8, gap: 4 }}>
-                                <View style={styles.ticketInfoRow}>
-                                  <Text style={[styles.ticketRangeLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Jugadas:</Text>
-                                  <Text style={[styles.ticketRangeText, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{lines.length} números</Text>
-                                </View>
-                                <View style={styles.ticketInfoRow}>
-                                  <Text style={[styles.ticketRangeLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Monto c/u:</Text>
-                                  <Text style={[styles.ticketRangeText, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{settings.currency || 'NIO '}{unitM.toFixed(2)}</Text>
-                                </View>
-                                <View style={[styles.ticketInfoRow, { borderTopWidth: 1, borderColor: voucherTheme === 'digital' ? 'rgba(168, 85, 247, 0.2)' : '#000', paddingTop: 4 }]}>
-                                  <Text style={[styles.ticketRangeLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Premio c/u:</Text>
-                                  <Text style={[styles.ticketRangePrize, voucherTheme === 'digital' ? { color: '#34d399' } : { color: '#000000' }]}>{settings.currency || 'NIO '}{winM.toFixed(2)}</Text>
-                                </View>
-                              </View>
-                            </View>
-                          );
-                        })() : (
-                          <View>
-                            <View style={[styles.ticketLinesHeader, voucherTheme === 'thermal' ? { borderBottomColor: '#000000' } : null]}>
-                              <Text style={[styles.ticketLinesHeaderLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Nº / Fecha</Text>
-                              <Text style={[styles.ticketLinesHeaderLabel, { textAlign: 'right' }, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Inversión</Text>
-                              <Text style={[styles.ticketLinesHeaderLabel, { textAlign: 'right' }, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Premio</Text>
-                            </View>
-                            {lines.map((line, idx) => {
-                              const formattedNum = lastSale.lotteryId === 'fechea'
-                                ? formatFecheaDate(getFecheaPlayValue(line))
-                                : `#${line.numero}`;
-                              const potentialWin = parseFloat(line.monto || 0) * parseFloat(game.payoutMultiplier || 80);
-                              return (
-                                <View key={line.id ?? idx} style={[styles.ticketLineRow, voucherTheme === 'thermal' ? { borderBottomColor: '#000000' } : null]}>
-                                  <Text style={[styles.ticketLineNum, voucherTheme === 'digital' ? { color: '#fbbf24' } : { color: '#000000' }]}>{formattedNum}</Text>
-                                  <Text style={[styles.ticketLineMonto, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>{settings.currency || 'NIO '}{parseFloat(line.monto).toFixed(2)}</Text>
-                                  <Text style={[styles.ticketLinePrize, voucherTheme === 'digital' ? { color: '#34d399' } : { color: '#000000' }]}>{settings.currency || 'NIO '}{potentialWin.toFixed(2)}</Text>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Separador */}
-                      <Text style={[
-                        styles.ticketDivider,
-                        voucherTheme === 'digital' ? styles.ticketDividerDigital : styles.ticketDividerThermal,
-                        voucherTheme === 'thermal' ? { color: '#000000' } : null
-                      ]}>
-                        --------------------------------
-                      </Text>
-
-                      {/* Total */}
-                      <View style={[
-                        styles.ticketTotalRow,
-                        voucherTheme === 'digital' ? styles.ticketTotalRowDigital : styles.ticketTotalRowThermal
-                      ]}>
-                        <Text style={[styles.ticketTotalLabel, voucherTheme === 'thermal' ? { color: '#000000' } : null]}>Total Invertido:</Text>
-                        <Text style={[styles.ticketTotalValue, voucherTheme === 'digital' ? { color: '#34d399' } : { color: '#000000' }]}>
-                          {settings.currency || 'NIO '}{parseFloat(lastSale.monto).toFixed(2)}
-                        </Text>
-                      </View>
-
-                      {/* QR Code Real */}
-                      <View style={styles.qrBox}>
-                        <Image source={{ uri: qrCodeUrl }} style={{ width: 120, height: 120, marginBottom: 4 }} />
-                        <Text style={[styles.qrTitle, voucherTheme === 'digital' ? { color: '#34d399' } : { color: '#000000', fontWeight: 'bold' }]}>Sello de Autenticidad</Text>
-                        <Text style={[styles.qrSubtitle, voucherTheme === 'digital' ? { color: '#888' } : { color: '#000000' }]}>VERIFICADO POR RIFAS SEGURAS</Text>
-                      </View>
-                    </View>
-                  );
-                })()}
-              </ScrollView>
-
-              {/* Action Buttons */}
-              {lastSale && (() => {
-                const game = getLotteryById(lastSale.lotteryId) || {};
-                const shareText = generateWhatsAppText(lastSale, settings, game);
-                const printText = generateTicketText(lastSale, settings, game);
-
-                return (
-                  <View style={styles.voucherActionRow}>
-                    <TouchableOpacity
-                      style={[styles.voucherActionBtn, { backgroundColor: '#25D366' }]}
-                      onPress={() => handleShareWhatsApp(lastSale, game)}
-                      activeOpacity={0.7}
-                    >
-                      <Share2 size={15} color="#fff" />
-                      <Text style={styles.voucherActionBtnText}>WhatsApp</Text>
-                    </TouchableOpacity>
-
-                    {printerConnected ? (
-                      <TouchableOpacity
-                        style={[styles.voucherActionBtn, { backgroundColor: COLORS.success }]}
-                        onPress={async () => {
-                          try {
-                            await printTicket(lastSale);
-                          } catch {}
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Printer size={15} color="#fff" />
-                        <Text style={styles.voucherActionBtnText}>Imprimir</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={[styles.voucherActionBtn, { backgroundColor: COLORS.primary }]}
-                        onPress={async () => {
-                          try {
-                            await Share.share({ message: printText });
-                          } catch (err) {
-                            Alert.alert('Error', 'No se pudo compartir el ticket.');
-                          }
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Printer size={15} color="#fff" />
-                        <Text style={styles.voucherActionBtnText}>Compartir Ticket</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })()}
-            </GlassCard>
-          </View>
-        </View>
-      )}
+      {/* ─── Modal de Comprobante (Voucher Reutilizable) ────────────── */}
+      <DigitalTicketModal
+        visible={showVoucher}
+        sale={lastSale}
+        settings={settings}
+        onClose={() => setShowVoucher(false)}
+      />
     </View>
     </KeyboardAvoidingView>
   );

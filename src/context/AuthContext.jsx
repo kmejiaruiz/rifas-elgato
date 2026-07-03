@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // AuthContext — usa API PHP + MySQL para autenticación
 // Gestiona Bearer token + CSRF token en memoria
 // ============================================================
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const { user } = await api.get('/auth.php');
+        const { user } = await api.get('/auth');
         dispatch({ type: 'LOGIN', payload: user });
       } catch (err) {
         // En caso de fallar por conexión (sin internet)
@@ -70,8 +70,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = useCallback(async (username, password) => {
-    // POST /auth.php devuelve token + csrfToken + user
-    const { token, user } = await api.post('/auth.php', { username, password });
+    // POST /auth devuelve token + csrfToken + user
+    const { token, user } = await api.post('/auth', { username, password });
     setToken(token);
     dispatch({ type: 'LOGIN', payload: user });
     toast.success(`Bienvenido, ${user.name}`);
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await api.delete('/auth.php'); } catch {}
+    try { await api.delete('/auth'); } catch {}
     clearToken();
     dispatch({ type: 'LOGOUT' });
     toast.success('Sesión cerrada');
@@ -88,22 +88,22 @@ export const AuthProvider = ({ children }) => {
   // ─── Gestión de usuarios (solo admin) ───────────────────────
 
   const getUsers = useCallback(async () => {
-    const { users } = await api.get('/users.php');
+    const { users } = await api.get('/users');
     return users;
   }, []);
 
   const createUser = useCallback(async (data) => {
-    const { user } = await api.post('/users.php', data);
+    const { user } = await api.post('/users', data);
     return user;
   }, []);
 
   const updateUser = useCallback(async (id, data) => {
-    const { user } = await api.put(`/users.php?id=${id}`, data);
+    const { user } = await api.put(`/users?id=${id}`, data);
     return user;
   }, []);
 
   const deleteUser = useCallback(async (id) => {
-    await api.delete(`/users.php?id=${id}`);
+    await api.delete(`/users?id=${id}`);
   }, []);
 
   return (

@@ -101,7 +101,7 @@ const buildTicketBytes = (sale, settings) => {
   const lottery = getLotteryById(lotteryId);
   if (!lottery) throw new Error('Tipo de rifa inválido');
 
-  const businessName = settings.businessName || 'Amaranto';
+  const businessName = settings.businessName || 'Zentric';
   const currency = settings.currency || 'NIO';
 
   const bytes = [];
@@ -138,7 +138,7 @@ const buildTicketBytes = (sale, settings) => {
 
   // ─ Jugadas ─
   const lines = sale.lines || [];
-  if (lines.length > 10) {
+  if (lines.length > 5) {
     // Boleto resumido por rango
     let rangeTxt = '';
     const unitM = parseFloat(lines[0]?.monto || 0);
@@ -367,7 +367,7 @@ export const printTestPage = async () => {
     0x0a,
     ...Array.from(encoder.encode('Conexion Exitosa ✓')),
     0x0a,
-    ...Array.from(encoder.encode('Amaranto Movil')),
+    ...Array.from(encoder.encode('Zentric')),
     0x0a, 0x0a, 0x0a,
     ...Array.from([0x1d, 0x56, 0x41, 0x10]), // CUT
   ];
@@ -389,7 +389,7 @@ export const printTestPage = async () => {
 export const formatTicketText = (sale, settings) => {
   if (!sale) return '';
   const lines = [];
-  const business = settings.businessName || 'Amaranto';
+  const business = settings.businessName || 'Zentric';
   const currency = settings.currency || 'NIO';
 
   const centerText = (text) => {

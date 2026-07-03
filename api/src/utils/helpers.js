@@ -42,7 +42,7 @@ async function requireAuth(req, res, next) {
 
 async function requireAdmin(req, res, next) {
   await requireAuth(req, res, () => {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'root') {
       return res.status(403).json({ error: 'Acceso denegado: se requiere rol admin.' });
     }
     next();

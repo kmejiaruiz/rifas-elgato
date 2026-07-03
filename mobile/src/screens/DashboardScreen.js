@@ -25,7 +25,7 @@ export const DashboardScreen = ({ onNavigate }) => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
   const currency = settings.currency || 'NIO';
-  const businessName = settings.businessName || 'Amaranto';
+  const businessName = settings.businessName || 'Zentric';
   const isBlocked = settings.isBlocked === true;
 
   // Resumen por tipo de juego
@@ -58,7 +58,7 @@ export const DashboardScreen = ({ onNavigate }) => {
     {
       type: 'default',
       background: '#6366f1',
-      title: 'Sistema de Ventas Amaranto',
+      title: 'Sistema de Ventas Zentric',
       subtitle: 'Gestiona tus sorteos y boletos de forma rápida.'
     },
     {

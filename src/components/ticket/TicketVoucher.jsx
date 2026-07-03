@@ -229,17 +229,26 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
         whatsappText += `*Cliente:* ${sale.comprador}\n`;
       }
       whatsappText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-      if (lines.length > 10) {
+      if (lines.length > 5) {
         let rangeTxt = '';
         const unitM = parseFloat(lines[0]?.monto || 0);
         const winM = unitM * payoutMultiplier;
+        let missingNums = [];
         
         if (sale.lotteryId === 'fechea') {
           rangeTxt = `${lines.length} Fechas`;
         } else {
           const nums = lines.map(l => parseInt(l.numero, 10)).filter(n => !isNaN(n)).sort((a,b)=>a-b);
           if (nums.length > 0) {
-            rangeTxt = `De ${formatLotteryNumber(sale.lotteryId, nums[0])} a ${formatLotteryNumber(sale.lotteryId, nums[nums.length-1])}`;
+            const minNum = nums[0];
+            const maxNum = nums[nums.length - 1];
+            rangeTxt = `De ${formatLotteryNumber(sale.lotteryId, minNum)} a ${formatLotteryNumber(sale.lotteryId, maxNum)}`;
+            
+            for (let i = minNum; i <= maxNum; i++) {
+              if (!nums.includes(i)) {
+                missingNums.push(formatLotteryNumber(sale.lotteryId, i));
+              }
+            }
           } else {
             rangeTxt = `${lines.length} números`;
           }
@@ -247,6 +256,9 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
         
         whatsappText += `*RESUMEN DE COMPRA POR RANGO:*\n`;
         whatsappText += `👉 *Serie/Rango:* ${rangeTxt}\n`;
+        if (missingNums.length > 0) {
+          whatsappText += `👉 *Omitidos (Cerrados):* ${missingNums.map(n => `#${n}`).join(', ')}\n`;
+        }
         whatsappText += `👉 *Cant. Números:* ${lines.length}\n`;
         whatsappText += `👉 *Inv. por Número:* ${settings.currency}${unitM.toFixed(2)}\n`;
         whatsappText += `👉 *Premio por Número Ganador:* ${settings.currency}${winM.toFixed(2)}\n`;
@@ -481,18 +493,27 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
 
           {/* Sección de Jugadas o Resumen de Serie */}
           <div style={{ marginBottom: '1.25rem' }}>
-            {lines.length > 10 ? (
+            {lines.length > 5 ? (
               (() => {
                 let rangeTxt = '';
                 const unitM = parseFloat(lines[0]?.monto || 0);
                 const winM = unitM * payoutMultiplier;
+                let missingNums = [];
                 
                 if (sale.lotteryId === 'fechea') {
                   rangeTxt = `${lines.length} Fechas`;
                 } else {
                   const nums = lines.map(l => parseInt(l.numero, 10)).filter(n => !isNaN(n)).sort((a,b)=>a-b);
                   if (nums.length > 0) {
-                    rangeTxt = `De ${formatLotteryNumber(sale.lotteryId, nums[0])} a ${formatLotteryNumber(sale.lotteryId, nums[nums.length-1])}`;
+                    const minNum = nums[0];
+                    const maxNum = nums[nums.length - 1];
+                    rangeTxt = `De ${formatLotteryNumber(sale.lotteryId, minNum)} a ${formatLotteryNumber(sale.lotteryId, maxNum)}`;
+                    
+                    for (let i = minNum; i <= maxNum; i++) {
+                      if (!nums.includes(i)) {
+                        missingNums.push(formatLotteryNumber(sale.lotteryId, i));
+                      }
+                    }
                   } else {
                     rangeTxt = `${lines.length} números`;
                   }
@@ -525,6 +546,12 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
                           <span style={{ color: '#94a3b8', fontWeight: 600 }}>Total Números:</span>
                           <strong style={{ color: '#ffffff', fontWeight: 800 }}>{lines.length} jugadas</strong>
                         </div>
+                        {missingNums.length > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--neon-red)', fontWeight: 600 }}>Omitidos (Cerrados):</span>
+                            <strong style={{ color: 'var(--neon-red)', fontWeight: 850 }}>{missingNums.map(n => `#${n}`).join(', ')}</strong>
+                          </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ color: '#94a3b8', fontWeight: 600 }}>Inv. por Número:</span>
                           <strong style={{ color: '#ffffff', fontWeight: 800 }}>{settings.currency}{unitM.toFixed(2)}</strong>
@@ -553,6 +580,12 @@ export const TicketVoucher = ({ sale, settings, onClose }) => {
                           <span>CANTIDAD:</span>
                           <strong>{lines.length} NUMEROS</strong>
                         </div>
+                        {missingNums.length > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--neon-red)', fontWeight: 'bold' }}>OMITIDOS (CERRADOS):</span>
+                            <strong style={{ color: 'var(--neon-red)' }}>{missingNums.map(n => `#${n}`).join(', ')}</strong>
+                          </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>INV. POR NUMERO:</span>
                           <strong>{settings.currency}{unitM.toFixed(2)}</strong>

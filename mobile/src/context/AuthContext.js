@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // AuthContext — Gestión de Autenticación para Móvil
 // ============================================================
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'LOADED' });
         return;
       }
-      const { user } = await api.get('/auth.php');
+      const { user } = await api.get('/auth');
       dispatch({ type: 'LOGIN', payload: user });
     } catch {
       await storage.removeSecure(TOKEN_KEY);
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (username, password) => {
     try {
-      const { token, user } = await api.post('/auth.php', { username, password });
+      const { token, user } = await api.post('/auth', { username, password });
       await storage.setSecure(TOKEN_KEY, token);
       dispatch({ type: 'LOGIN', payload: user });
       return user;
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async () => {
     try {
-      await api.delete('/auth.php');
+      await api.delete('/auth');
     } catch {}
     await storage.removeSecure(TOKEN_KEY);
     dispatch({ type: 'LOGOUT' });
@@ -68,22 +68,22 @@ export const AuthProvider = ({ children }) => {
   // --- Métodos Administrativos de Gestión de Usuarios ---
 
   const getUsers = useCallback(async () => {
-    const { users } = await api.get('/users.php');
+    const { users } = await api.get('/users');
     return users;
   }, []);
 
   const createUser = useCallback(async (data) => {
-    const { user } = await api.post('/users.php', data);
+    const { user } = await api.post('/users', data);
     return user;
   }, []);
 
   const updateUser = useCallback(async (id, data) => {
-    const { user } = await api.put(`/users.php?id=${id}`, data);
+    const { user } = await api.put(`/users?id=${id}`, data);
     return user;
   }, []);
 
   const deleteUser = useCallback(async (id) => {
-    await api.delete(`/users.php?id=${id}`);
+    await api.delete(`/users?id=${id}`);
   }, []);
 
   return (

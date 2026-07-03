@@ -16,13 +16,18 @@ let pool = null;
 async function getDB() {
   if (pool !== null) return pool;
 
+  const sslOption = (DB_HOST === '127.0.0.1' || DB_HOST === 'localhost') 
+    ? false 
+    : { rejectUnauthorized: false };
+
   // Intentar crear la base de datos si no existe
   try {
     const conn = await mysql.createConnection({
       host: DB_HOST,
       user: DB_USER,
       password: DB_PASS,
-      port: Number(DB_PORT)
+      port: Number(DB_PORT),
+      ssl: sslOption
     });
     await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await conn.end();
@@ -42,7 +47,8 @@ async function getDB() {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
-    dateStrings: true
+    dateStrings: true,
+    ssl: sslOption
   });
 
   // Inicializar esquema
@@ -220,7 +226,7 @@ async function initSchema(dbPool) {
         prizes_total DECIMAL(10,2) NOT NULL,
         commission_amount DECIMAL(10,2) NOT NULL,
         net_salary DECIMAL(10,2) NOT NULL,
-        status ENUM('pending', 'confirmed') NOT NULL DEFAULT 'pending',
+        status ENUM('pending', 'confirmed', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
         created_by_name VARCHAR(100) NOT NULL,
         paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         confirmed_at TIMESTAMP NULL,
@@ -233,7 +239,10 @@ async function initSchema(dbPool) {
       const [cols] = await dbPool.query("SHOW COLUMNS FROM salary_payments");
       const colNames = cols.map(c => c.Field);
       if (!colNames.includes('status')) {
-        await dbPool.query("ALTER TABLE salary_payments ADD COLUMN status ENUM('pending', 'confirmed') NOT NULL DEFAULT 'pending'");
+        await dbPool.query("ALTER TABLE salary_payments ADD COLUMN status ENUM('pending', 'confirmed', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending'");
+      } else {
+        // Asegurar que la columna status tenga los nuevos valores del ENUM
+        await dbPool.query("ALTER TABLE salary_payments MODIFY COLUMN status ENUM('pending', 'confirmed', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending'");
       }
       if (!colNames.includes('created_by_name')) {
         await dbPool.query("ALTER TABLE salary_payments ADD COLUMN created_by_name VARCHAR(100) NOT NULL DEFAULT 'Administrador'");

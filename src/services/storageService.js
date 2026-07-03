@@ -1,6 +1,6 @@
 // ============================================================
-// storageService — ahora usa MySQL vía API PHP y soporta PWA Offline
-// Mantiene la misma interfaz que la versión IndexedDB
+// storageService — usa la API Node.js/Express con soporte PWA Offline
+// Mantiene la misma interfaz, con fallback a localStorage cuando no hay conexión
 // ============================================================
 import { api } from './apiService';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ const isOnline = () => navigator.onLine;
 
 export const saveSale = async (saleData) => {
   try {
-    const res = await api.post('/sales.php', saleData);
+    const res = await api.post('/sales', saleData);
     return res.sales ? res.sales[0] : res.sale;
   } catch (err) {
     // Modo offline como fallback si falla la conexión
@@ -66,7 +66,7 @@ export const getAllSales = async () => {
     return JSON.parse(localStorage.getItem('cached_sales') || '[]');
   }
   try {
-    const { sales } = await api.get('/sales.php');
+    const { sales } = await api.get('/sales');
     const list = sales || [];
     localStorage.setItem('cached_sales', JSON.stringify(list));
     return list;
@@ -83,7 +83,7 @@ export const getTodaySales = async () => {
     return all.filter(s => s.createdAt && s.createdAt.startsWith(today));
   }
   try {
-    const { sales } = await api.get(`/sales.php?date=${today}`);
+    const { sales } = await api.get(`/sales?date=${today}`);
     return sales || [];
   } catch {
     const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
@@ -124,7 +124,7 @@ export const getSalesByFilter = async (filters = {}) => {
     if (filters.status)     params.set('status',     filters.status);
     if (filters.search)     params.set('search',     filters.search);
     if (filters.sellerId)   params.set('seller_id',  filters.sellerId);
-    const { sales } = await api.get(`/sales.php?${params.toString()}`);
+    const { sales } = await api.get(`/sales?${params.toString()}`);
     return sales || [];
   } catch {
     // Fallback offline local
@@ -143,7 +143,7 @@ export const cancelSale = async (id, adminCreds = null) => {
   if (!isOnline()) {
     throw new Error('No se pueden anular boletos en modo offline.');
   }
-  const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}`, adminCreds);
+  const { sale } = await api.put(`/sales?id=${encodeURIComponent(id)}`, adminCreds);
   return sale;
 };
 
@@ -151,7 +151,7 @@ export const paySalePrize = async (id) => {
   if (!isOnline()) {
     throw new Error('No se pueden pagar premios en modo offline.');
   }
-  const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}&pay_prize=1`);
+  const { sale } = await api.put(`/sales?id=${encodeURIComponent(id)}&pay_prize=1`);
   return sale;
 };
 
@@ -161,7 +161,7 @@ export const getSaleById = async (id) => {
     return all.find((s) => s.id === id) || null;
   }
   try {
-    const { sales } = await api.get(`/sales.php?search=${encodeURIComponent(id)}`);
+    const { sales } = await api.get(`/sales?search=${encodeURIComponent(id)}`);
     return sales.find((s) => s.id === id) || null;
   } catch {
     const all = JSON.parse(localStorage.getItem('cached_sales') || '[]');
@@ -174,7 +174,7 @@ export const getDailySummary = async () => {
     return JSON.parse(localStorage.getItem('cached_summary') || JSON.stringify({ total: 0, count: 0, byType: {}, cancelled: 0 }));
   }
   try {
-    const summary = await api.get('/sales.php?summary=1');
+    const summary = await api.get('/sales?summary=1');
     localStorage.setItem('cached_summary', JSON.stringify(summary));
     return summary;
   } catch {
@@ -187,15 +187,15 @@ export const getDailySummary = async () => {
 export const getSettings = async () => {
   if (!isOnline()) {
     return JSON.parse(localStorage.getItem('cached_settings') || JSON.stringify({
-      businessName: 'Amaranto', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
+      businessName: 'Zentric', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
       appStatus: 'active', appDisableAt: 'never', isBlocked: false,
       carousel_images: '[]'
     }));
   }
   try {
-    const { settings } = await api.get('/settings.php');
+    const { settings } = await api.get('/settings');
     const result = {
-      businessName:     settings.businessName || 'Amaranto',
+      businessName:     settings.businessName || 'Zentric',
       currency:         settings.currency     || 'NIO',
       autoprint:        settings.autoprint === 'true',
       drawCloseMinutes: Number(settings.drawCloseMinutes || 10),
@@ -208,7 +208,7 @@ export const getSettings = async () => {
     return result;
   } catch {
     return JSON.parse(localStorage.getItem('cached_settings') || JSON.stringify({
-      businessName: 'Amaranto', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
+      businessName: 'Zentric', currency: 'NIO', autoprint: true, drawCloseMinutes: 10,
       appStatus: 'active', appDisableAt: 'never', isBlocked: false,
       carousel_images: '[]'
     }));
@@ -224,7 +224,7 @@ export const saveSettings = async (settings) => {
     autoprint: String(settings.autoprint ?? true),
     drawCloseMinutes: String(settings.drawCloseMinutes ?? 10),
   };
-  await api.put('/settings.php', payload);
+  await api.put('/settings', payload);
   localStorage.setItem('cached_settings', JSON.stringify(settings));
 };
 
@@ -235,7 +235,7 @@ export const getResults = async () => {
     return JSON.parse(localStorage.getItem('cached_results') || '[]');
   }
   try {
-    const { results } = await api.get('/results.php');
+    const { results } = await api.get('/results');
     const list = results || [];
     localStorage.setItem('cached_results', JSON.stringify(list));
     return list;
@@ -276,14 +276,14 @@ export const announceResult = async (payload) => {
   }
 
   // Modo online
-  return await api.post('/results.php', payload);
+  return await api.post('/results', payload);
 };
 
 export const deleteResult = async (id) => {
   if (!isOnline()) {
     throw new Error('No se pueden eliminar resultados en modo offline.');
   }
-  return await api.delete(`/results.php?id=${id}`);
+  return await api.delete(`/results?id=${id}`);
 };
 
 export const checkWinners = async () => {
@@ -291,7 +291,7 @@ export const checkWinners = async () => {
     return [];
   }
   try {
-    const { winners } = await api.get('/results.php?check=1');
+    const { winners } = await api.get('/results?check=1');
     return winners || [];
   } catch {
     return [];
@@ -320,7 +320,7 @@ export const syncOfflineData = async (dispatch) => {
   const remainingSales = [];
   for (const item of salesQueue) {
     try {
-      const res = await api.post('/sales.php', item.data);
+      const res = await api.post('/sales', item.data);
       const sale = res.sales ? res.sales[0] : res.sale;
       syncedSalesCount++;
       totalMonto += parseFloat(sale.monto || 0);
@@ -339,7 +339,7 @@ export const syncOfflineData = async (dispatch) => {
   const remainingResults = [];
   for (const item of resultsQueue) {
     try {
-      await api.post('/results.php', item.data);
+      await api.post('/results', item.data);
       syncedResultsCount++;
     } catch (err) {
       console.error('[Sync] Error al sincronizar resultado:', err);
@@ -351,7 +351,7 @@ export const syncOfflineData = async (dispatch) => {
   // Actualizar la cache local de ventas y resultados después de sincronizar con éxito
   try {
     if (syncedSalesCount > 0) {
-      const { sales } = await api.get('/sales.php');
+      const { sales } = await api.get('/sales');
       if (sales) {
         localStorage.setItem('cached_sales', JSON.stringify(sales));
         if (dispatch) {
@@ -360,14 +360,14 @@ export const syncOfflineData = async (dispatch) => {
       }
     }
     if (syncedResultsCount > 0) {
-      const { results } = await api.get('/results.php');
+      const { results } = await api.get('/results');
       if (results) {
         localStorage.setItem('cached_results', JSON.stringify(results));
       }
     }
     
     // Recargar resumen diario
-    const summary = await api.get('/sales.php?summary=1');
+    const summary = await api.get('/sales?summary=1');
     if (summary && dispatch) {
       localStorage.setItem('cached_summary', JSON.stringify(summary));
       dispatch({ type: 'SET_DAILY_SUMMARY', payload: summary });

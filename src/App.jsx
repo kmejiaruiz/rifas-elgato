@@ -18,6 +18,7 @@ import { Dashboard } from './pages/Dashboard';
 import { SellTicket } from './pages/SellTicket';
 import { SalesHistory } from './pages/SalesHistory';
 import { Settings } from './pages/Settings';
+import zentricIsotipo from './assets/zentric_isotipo.png';
 import { AdminPanel } from './pages/AdminPanel';
 import { LoginPage } from './pages/LoginPage';
 import { RootPanel } from './pages/RootPanel';
@@ -115,8 +116,8 @@ const AppShell = () => {
       <nav className="bottom-nav" role="navigation" aria-label="Navegación principal">
         {/* Brand — only visible on desktop sidebar */}
         <div className="sidebar-brand">
-          <span className="sidebar-brand-icon">🎫</span>
-          <span className="sidebar-brand-name">Amaranto</span>
+          <img src={zentricIsotipo} alt="Zentric" className="sidebar-brand-logo" />
+          <span className="sidebar-brand-name">Zentric</span>
         </div>
 
         {/* Nav divider label — only on desktop */}
@@ -177,7 +178,7 @@ const AppShell = () => {
                 backgroundColor: isServerConnected ? '#34d399' : '#f87171',
                 boxShadow: `0 0 8px ${isServerConnected ? '#34d399' : '#f87171'}`,
               }} />
-              <span>{isServerConnected ? 'Online' : 'Local'}</span>
+              <span>{isServerConnected ? 'Conectado' : 'Local'}</span>
             </div>
             <HeaderClock />
             <PrinterStatus />
@@ -364,6 +365,7 @@ const AuthRouter = () => {
 const AppLoader = ({ children }) => {
   const { user } = useAuth();
   const { loadAllData } = useApp();
+  const [activeNotification, setActiveNotification] = useState(null);
 
   // Cargar ventas, resumen y settings completos tras cada login (solo usuarios normales)
   useEffect(() => {
@@ -377,13 +379,17 @@ const AppLoader = ({ children }) => {
 
     const checkNotifications = async () => {
       try {
-        const res = await api.get('/notifications.php');
+        const res = await api.get('/notifications');
         if (res && res.notifications && res.notifications.length > 0) {
           res.notifications.forEach((n) => {
-            toast(n.message, {
-              icon: '💰',
-              duration: 8000,
-            });
+            if (n.title && n.title.includes('Pago de Salario')) {
+              setActiveNotification(n);
+            } else {
+              toast(n.message, {
+                icon: '💰',
+                duration: 8000,
+              });
+            }
           });
         }
       } catch (err) {
@@ -401,7 +407,52 @@ const AppLoader = ({ children }) => {
     };
   }, [user]);
 
-  return children;
+  return (
+    <>
+      {children}
+      {activeNotification && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+          backdropFilter: 'blur(8px)', padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: '16px', maxWidth: '450px', width: '100%',
+            padding: '1.75rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            position: 'relative'
+          }}>
+            <h3 style={{
+              fontSize: '1.25rem', fontWeight: 800,
+              color: activeNotification.title.includes('Rechazado') ? '#f87171' : '#34d399',
+              marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+            }}>
+              {activeNotification.title}
+            </h3>
+            <p style={{
+              fontSize: '0.82rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.6,
+              margin: '0.75rem 0 1.5rem 0'
+            }}>
+              {activeNotification.message}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setActiveNotification(null)}
+                style={{ padding: '0.5rem 1.5rem', fontSize: '0.78rem' }}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 const App = () => (
@@ -426,15 +477,22 @@ const PendingPaymentsAlert = () => {
   const { user } = useAuth();
   const [pending, setPending] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [skippedIds, setSkippedIds] = useState([]);
 
   useEffect(() => {
     if (!user || user.role !== 'vendedor') return;
 
     const checkPending = async () => {
       try {
-        const res = await api.get('/users.php?pending_pay=1');
+        const res = await api.get('/users?pending_pay=1');
         if (res && res.pendingPayments && res.pendingPayments.length > 0) {
-          setPending(res.pendingPayments[0]);
+          const firstPending = res.pendingPayments[0];
+          // Solo mostrar si no ha sido saltado en esta sesión
+          if (!skippedIds.includes(firstPending.id)) {
+            setPending(firstPending);
+          } else {
+            setPending(null);
+          }
         } else {
           setPending(null);
         }
@@ -446,14 +504,14 @@ const PendingPaymentsAlert = () => {
     checkPending();
     const interval = setInterval(checkPending, 15000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, skippedIds]);
 
   if (!pending) return null;
 
   const handleConfirm = async () => {
     setConfirming(true);
     try {
-      await api.post('/users.php?confirm_pay=1', { paymentId: pending.id });
+      await api.post('/users?confirm_pay=1', { paymentId: pending.id });
       toast.success('Pago de salario confirmado y registrado con éxito.');
       setPending(null);
     } catch (err) {
@@ -461,6 +519,24 @@ const PendingPaymentsAlert = () => {
     } finally {
       setConfirming(false);
     }
+  };
+
+  const handleReject = async () => {
+    setConfirming(true);
+    try {
+      await api.post('/users?confirm_pay=1', { paymentId: pending.id, reject: true });
+      toast.success('Pago rechazado. Se ha notificado al administrador.');
+      setPending(null);
+    } catch (err) {
+      toast.error(err.message || 'No se pudo rechazar el pago.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleSkip = () => {
+    setSkippedIds((prev) => [...prev, pending.id]);
+    setPending(null);
   };
 
   const formatDrawDate = (dateStr) => {
@@ -527,15 +603,31 @@ const PendingPaymentsAlert = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => setPending(null)}
+            onClick={handleSkip}
             disabled={confirming}
             style={{ padding: '0.5rem 1rem', fontSize: '0.75rem' }}
           >
-            Aún no
+            Preguntar luego
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={handleReject}
+            disabled={confirming}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.75rem',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '6px'
+            }}
+          >
+            Rechazar (No recibido)
           </button>
           <button
             type="button"

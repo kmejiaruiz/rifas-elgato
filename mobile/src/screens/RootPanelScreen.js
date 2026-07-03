@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // RootPanelScreen — Panel de control exclusivo para el usuario root (Móvil)
 // Permite gestionar la disponibilidad y bloqueo de la aplicación
 // ============================================================
@@ -34,8 +34,8 @@ const RootCredentialsModal = ({ visible, onConfirm, onClose }) => {
     setLoading(true);
     setError('');
     try {
-      // Verifica credenciales sin crear sesión — POST /root.php
-      const { role } = await api.post('/root.php', { username: username.trim(), password });
+      // Verifica credenciales sin crear sesión — POST /root
+      const { role } = await api.post('/root', { username: username.trim(), password });
       if (role !== 'root') {
         setInsufficientPerms(true);
         setLoading(false);
@@ -272,7 +272,7 @@ export const RootPanelScreen = ({ onLogout }) => {
     setApiStatus(null);
     try {
       await setApiUrl(fullUrl);
-      await api.get('/settings.php');
+      await api.get('/settings');
       setApiStatus('ok');
     } catch {
       setApiStatus('error');
@@ -291,11 +291,11 @@ export const RootPanelScreen = ({ onLogout }) => {
   const loadStatus = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/root.php');
+      const res = await api.get('/root');
       setAppControl(res.appControl || { status: 'active', disableAt: 'never', isBlocked: false });
 
       // Cargar configuraciones de bypassCode
-      const settingsRes = await api.get('/settings.php');
+      const settingsRes = await api.get('/settings');
       if (settingsRes && settingsRes.settings) {
         setBypassCodeState(settingsRes.settings.bypassCode || '1005199611712301977');
       }
@@ -313,7 +313,7 @@ export const RootPanelScreen = ({ onLogout }) => {
     }
     setActionLoading(true);
     try {
-      await api.put('/settings.php', { bypassCode: bypassCode.trim() });
+      await api.put('/settings', { bypassCode: bypassCode.trim() });
       Alert.alert('Éxito', 'Código de recuperación actualizado correctamente.');
     } catch (err) {
       Alert.alert('Error', 'No se pudo guardar el código: ' + err.message);
@@ -330,7 +330,7 @@ export const RootPanelScreen = ({ onLogout }) => {
   const doAction = async (action, extraData = {}) => {
     setActionLoading(true);
     try {
-      const res = await api.put('/root.php', { action, ...extraData });
+      const res = await api.put('/root', { action, ...extraData });
       setAppControl(res.appControl || { status: 'active', disableAt: 'never', isBlocked: false });
       const messages = {
         disable:  'Aplicación desactivada correctamente.',

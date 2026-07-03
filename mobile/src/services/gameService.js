@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // gameService — Consultas de juegos, bloqueos y estado
 // Espejo del gameService de la app web React
 // ============================================================
@@ -12,7 +12,7 @@ import { api } from './apiService';
 export const getBlockedNumbers = async (lotteryId) => {
   if (!lotteryId) return [];
   try {
-    const res = await api.get(`/blocked.php?lottery_id=${encodeURIComponent(lotteryId)}`);
+    const res = await api.get(`/blocked?lottery_id=${encodeURIComponent(lotteryId)}`);
     return res.blocked || [];
   } catch {
     return [];
@@ -25,7 +25,7 @@ export const getBlockedNumbers = async (lotteryId) => {
  */
 export const getDisabledGames = async () => {
   try {
-    const res = await api.get('/games.php');
+    const res = await api.get('/games');
     const configs = res.configs || {};
     return Object.entries(configs)
       .filter(([, cfg]) => Number(cfg.enabled) === 0)

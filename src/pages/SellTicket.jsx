@@ -939,7 +939,7 @@ export const SellTicket = () => {
               {getLotteryById(lastSale.lotteryId)?.name}
               {lastSale.comprador ? ` · ${lastSale.comprador}` : ''}
             </div>
-            {lastSale.lines && lastSale.lines.length > 10 ? (
+            {lastSale.lines && lastSale.lines.length > 5 ? (
               (() => {
                 const lt = getLotteryById(lastSale.lotteryId);
                 const lns = lastSale.lines;
@@ -1036,13 +1036,14 @@ export const SellTicket = () => {
 
 // ─── Modal de confirmación inline ────────────────────────────
 const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDate, selectedHour, onConfirm, onCancel }) => {
-  const isSummarized = jugadas.length > 10;
+  const isSummarized = jugadas.length > 5;
   
   // Calcular datos del rango resumido
   let rangeText = '';
   let unitMonto = 0;
   let winPerNumber = 0;
   
+  let missingNums = [];
   if (isSummarized) {
     if (lottery.id === 'fechea') {
       rangeText = `${jugadas.length} Fechas`;
@@ -1060,6 +1061,12 @@ const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDat
         const formattedMin = formatLotteryNumber(lottery.id, minNum);
         const formattedMax = formatLotteryNumber(lottery.id, maxNum);
         rangeText = `De ${formattedMin} a ${formattedMax}`;
+        
+        for (let i = minNum; i <= maxNum; i++) {
+          if (!numbersList.includes(i)) {
+            missingNums.push(formatLotteryNumber(lottery.id, i));
+          }
+        }
       } else {
         rangeText = `${jugadas.length} números`;
       }
@@ -1125,6 +1132,13 @@ const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDat
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Serie / Rango</span>
                 <span style={{ fontWeight: 900, color: 'var(--neon-yellow)', fontSize: '1.1rem' }}>{rangeText}</span>
               </div>
+              
+              {missingNums.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--neon-red)', fontWeight: 700, textTransform: 'uppercase' }}>Omitidos (Cerrados)</span>
+                  <span style={{ fontWeight: 800, color: 'var(--neon-red)', fontSize: '0.9rem' }}>{missingNums.map(n => `#${n}`).join(', ')}</span>
+                </div>
+              )}
               
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Números</span>

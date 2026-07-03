@@ -52,6 +52,7 @@ const AppContent = () => {
   const { loadAllData, settings, lotteries } = useApp();
   const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' | 'sell' | 'history' | 'settings' | 'admin'
+  const [skippedPaymentIds, setSkippedPaymentIds] = useState([]);
 
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -68,14 +69,17 @@ const AppContent = () => {
     globalAlertRegister = (title, message, buttons, options) => {
       let cancelText = null;
       let confirmText = 'Aceptar';
+      let extraText = null;
       let onConfirmHandler = null;
       let onCancelHandler = null;
+      let onExtraHandler = null;
+      let extraVariant = null;
 
       if (buttons && buttons.length > 0) {
         if (buttons.length === 1) {
           confirmText = buttons[0].text || 'Aceptar';
           onConfirmHandler = buttons[0].onPress;
-        } else if (buttons.length >= 2) {
+        } else if (buttons.length === 2) {
           const cancelBtnIndex = buttons.findIndex(b => b.style === 'cancel' || b.text?.toLowerCase() === 'cancelar');
           if (cancelBtnIndex !== -1) {
             const cancelBtn = buttons[cancelBtnIndex];
@@ -89,6 +93,28 @@ const AppContent = () => {
             onCancelHandler = buttons[0].onPress;
             confirmText = buttons[1].text || 'Aceptar';
             onConfirmHandler = buttons[1].onPress;
+          }
+        } else if (buttons.length >= 3) {
+          // Soporta 3 botones (ej: confirmación de pago con Preguntar Luego, Rechazar, Confirmar)
+          const cancelBtn = buttons.find(b => b.style === 'cancel');
+          const destBtn = buttons.find(b => b.style === 'destructive');
+          const defaultBtn = buttons.find(b => b.style !== 'cancel' && b.style !== 'destructive');
+
+          if (cancelBtn) {
+            cancelText = cancelBtn.text;
+            onCancelHandler = cancelBtn.onPress;
+          }
+          if (destBtn) {
+            extraText = destBtn.text;
+            onExtraHandler = destBtn.onPress;
+            extraVariant = 'danger';
+          }
+          if (defaultBtn) {
+            confirmText = defaultBtn.text;
+            onConfirmHandler = defaultBtn.onPress;
+          } else {
+            confirmText = buttons[2].text;
+            onConfirmHandler = buttons[2].onPress;
           }
         }
       }
@@ -115,6 +141,8 @@ const AppContent = () => {
         type,
         confirmText,
         cancelText,
+        extraText,
+        extraVariant,
         onConfirm: () => {
           setAlertConfig(prev => ({ ...prev, visible: false }));
           if (onConfirmHandler) onConfirmHandler();
@@ -122,6 +150,10 @@ const AppContent = () => {
         onCancel: () => {
           setAlertConfig(prev => ({ ...prev, visible: false }));
           if (onCancelHandler) onCancelHandler();
+        },
+        onExtra: () => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (onExtraHandler) onExtraHandler();
         }
       });
     };
@@ -152,7 +184,7 @@ const AppContent = () => {
       // En la primera ejecución solo sincronizamos (marcamos todo como leído en el backend)
       // sin mostrar alertas, para evitar spam de eventos pasados.
       try {
-        const res = await api.get('/notifications.php');
+        const res = await api.get('/notifications');
         if (isFirstRun) {
           // Primera corrida: solo vaciamos el buzón sin mostrar alertas
           isFirstRun = false;
@@ -285,7 +317,7 @@ const AppContent = () => {
     const checkSellersNotifications = async () => {
       try {
         // 1. Resultados anunciados después del inicio de sesión
-        const resData = await api.get('/results.php');
+        const resData = await api.get('/results');
         const results = resData.results || [];
 
         if (sessionStart === null) {
@@ -346,7 +378,7 @@ const AppContent = () => {
         }
 
         // 2. Boletos ganadores del vendedor
-        const winnersData = await api.get('/results.php?check=1');
+        const winnersData = await api.get('/results?check=1');
         const winners = winnersData.winners || [];
 
         const seenKey = `seen_winners_v2_${user?.id}`;
@@ -412,9 +444,15 @@ const AppContent = () => {
       isChecking = true;
 
       try {
-        const res = await api.get('/users.php?pending_pay=1');
+        const res = await api.get('/users?pending_pay=1');
         if (res && res.pendingPayments && res.pendingPayments.length > 0) {
           const p = res.pendingPayments[0];
+
+          // Evitar mostrar si el usuario ya saltó este pago en esta sesión
+          if (skippedPaymentIds.includes(p.id)) {
+            isChecking = false;
+            return;
+          }
 
           // Formateadores locales simples
           const currency = (settings && settings.currency) ? settings.currency + ' ' : 'NIO ';
@@ -436,12 +474,30 @@ const AppContent = () => {
             'Confirmación de Pago',
             message,
             [
-              { text: 'Aún no', style: 'cancel' },
+              {
+                text: 'Preguntar luego',
+                style: 'cancel',
+                onPress: () => {
+                  setSkippedPaymentIds(prev => [...prev, p.id]);
+                }
+              },
+              {
+                text: 'Rechazar (No recibido)',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await api.post('/users?confirm_pay=1', { paymentId: p.id, reject: true });
+                    Alert.alert('Rechazado', 'El pago ha sido marcado como rechazado.');
+                  } catch (err) {
+                    Alert.alert('Error', err.message || 'No se pudo rechazar el pago.');
+                  }
+                }
+              },
               {
                 text: 'Sí, Confirmar Recibido',
                 onPress: async () => {
                   try {
-                    await api.post('/users.php?confirm_pay=1', { paymentId: p.id });
+                    await api.post('/users?confirm_pay=1', { paymentId: p.id });
                     Alert.alert('Confirmado', 'El pago ha sido marcado como recibido.');
                   } catch (err) {
                     Alert.alert('Error', err.message || 'No se pudo confirmar el pago.');
@@ -451,6 +507,14 @@ const AppContent = () => {
             ],
             { cancelable: false }
           );
+        } else {
+          // Si no hay pagos pendientes y la alerta activa es la de confirmación de pago, la cerramos
+          setAlertConfig(prev => {
+            if (prev.visible && prev.title === 'Confirmación de Pago') {
+              return { ...prev, visible: false };
+            }
+            return prev;
+          });
         }
       } catch (err) {
         console.warn('Error checking pending payments:', err.message);
@@ -467,31 +531,24 @@ const AppContent = () => {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [user, settings]);
+  }, [user, settings, skippedPaymentIds]);
 
 
   // Pantalla de carga inicial (restaurando token seguro)
   if (authLoading) {
     return (
-      <View style={styles.splashContainer}>
+      <View style={[styles.splashContainer, { justifyContent: 'center', alignItems: 'center' }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0B0C14" />
-        <View style={styles.splashLogoContainer}>
+        <View style={{ alignItems: 'center', justifyContent: 'center', width: 200, height: 200 }}>
+          <View style={{
+            position: 'absolute', width: 180, height: 180, borderRadius: 90,
+            backgroundColor: 'rgba(59,130,246,0.12)',
+          }} />
           <Image
             source={require('./assets/app_logo.png')}
-            style={styles.splashLogo}
+            style={{ width: 170, height: 170 }}
             resizeMode="contain"
           />
-          <Text style={styles.splashTitle}>AMARANTO</Text>
-          <Text style={styles.splashSubtitle}>Rifas & Sorteos</Text>
-        </View>
-        
-        <View style={styles.splashLoadingSection}>
-          <ActivityIndicator size="large" color={COLORS.primaryLight} />
-          <Text style={styles.splashLoadingText}>Cargando Amaranto...</Text>
-        </View>
-        
-        <View style={styles.splashFooter}>
-          <Text style={styles.splashVersionText}>Versión 1.0.0</Text>
         </View>
       </View>
     );
@@ -633,6 +690,9 @@ const AppContent = () => {
         cancelText={alertConfig.cancelText}
         onConfirm={alertConfig.onConfirm}
         onCancel={alertConfig.onCancel}
+        extraText={alertConfig.extraText}
+        onExtra={alertConfig.onExtra}
+        extraVariant={alertConfig.extraVariant}
         onClose={() => setAlertConfig(a => ({ ...a, visible: false }))}
       />
     </View>

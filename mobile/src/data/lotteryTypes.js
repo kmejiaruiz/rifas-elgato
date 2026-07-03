@@ -11,9 +11,7 @@ export let LOTTERY_TYPES = {
     description: 'Lotería nacional de Costa Rica',
     numberRange: { min: 0, max: 99 },
     numberDigits: 2,
-    extraFields: [
-      { key: 'fraccion', label: 'Fracción',  type: 'number', required: false },
-    ],
+    extraFields: [],
     defaultPrice: 500,
     priceLabel: 'NIO ',
     currency: 'NIO',
@@ -43,15 +41,7 @@ export let LOTTERY_TYPES = {
     description: 'Tres dígitos, sorteo diario',
     numberRange: { min: 0, max: 999 },
     numberDigits: 3,
-    extraFields: [
-      { key: 'modalidad', label: 'Modalidad', type: 'select', required: true,
-        options: [
-          { value: 'exacto',    label: 'Exacto' },
-          { value: 'combinado', label: 'Combinado' },
-          { value: 'corrido',   label: 'Corrido' },
-        ]
-      },
-    ],
+    extraFields: [],
     defaultPrice: 100,
     priceLabel: 'NIO ',
     currency: 'NIO',
@@ -66,14 +56,7 @@ export let LOTTERY_TYPES = {
     description: 'Cuatro dígitos',
     numberRange: { min: 0, max: 9999 },
     numberDigits: 4,
-    extraFields: [
-      { key: 'modalidad', label: 'Modalidad', type: 'select', required: true,
-        options: [
-          { value: 'exacto',    label: 'Exacto' },
-          { value: 'combinado', label: 'Combinado' },
-        ]
-      },
-    ],
+    extraFields: [],
     defaultPrice: 100,
     priceLabel: 'NIO ',
     currency: 'NIO',

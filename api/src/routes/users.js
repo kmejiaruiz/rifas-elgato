@@ -174,31 +174,90 @@ router.post('/', requireAuth, async (req, res) => {
 
   try {
     // 1. Confirmar pago (Vendedor)
+    // 1. Confirmar/Rechazar pago (Vendedor)
     if (req.query.confirm_pay !== undefined) {
-      const { paymentId } = req.body;
+      const { paymentId, reject } = req.body;
       if (!paymentId) {
         return res.status(400).json({ error: 'paymentId es requerido.' });
       }
 
       const [checkRows] = await db.query(
-        'SELECT id FROM salary_payments WHERE id = ? AND seller_id = ?',
+        'SELECT id, status FROM salary_payments WHERE id = ? AND seller_id = ?',
         [paymentId, user.id]
       );
       if (checkRows.length === 0) {
         return res.status(404).json({ error: 'Solicitud de pago no encontrada o no pertenece a tu usuario.' });
       }
 
+      if (checkRows[0].status !== 'pending') {
+        return res.status(400).json({ error: 'No se pudo realizar la accion, corresponde a un pago con una decision ya emitida.' });
+      }
+
+      const newStatus = reject ? 'rejected' : 'confirmed';
       await db.query(
-        'UPDATE salary_payments SET status = "confirmed", confirmed_at = NOW() WHERE id = ?',
+        'UPDATE salary_payments SET status = ?, confirmed_at = NOW() WHERE id = ?',
+        [newStatus, paymentId]
+      );
+
+      // Obtener detalles del pago y el vendedor para la notificación del admin
+      const [payDetails] = await db.query(
+        'SELECT p.*, u.name as seller_name FROM salary_payments p JOIN users u ON u.id = p.seller_id WHERE p.id = ?',
+        [paymentId]
+      );
+      if (payDetails.length > 0) {
+        const pd = payDetails[0];
+        const formatF = (d) => {
+          if (!d) return '';
+          const parts = String(d).split('-');
+          return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+        const title = reject ? '⚠️ Pago de Salario Rechazado' : '✅ Pago de Salario Aprobado';
+        const msg = `El vendedor ${pd.seller_name} ha ${reject ? 'RECHAZADO' : 'APROBADO'} el pago del periodo ${formatF(pd.start_date)} al ${formatF(pd.end_date)} por un monto de NIO ${Number(pd.net_salary).toFixed(2)}.`;
+        
+        await db.query(
+          'INSERT INTO notifications (user_id, title, message) VALUES (NULL, ?, ?)',
+          [title, msg]
+        );
+      }
+
+      return res.json({ message: reject ? 'Pago rechazado.' : 'Pago confirmado y aceptado con éxito.' });
+    }
+
+    // Para el resto de acciones (registrar pagos, cancelar pagos, crear usuarios), se requiere rol de administrador
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+
+    // 2. Cancelar pago (Admin)
+    if (req.query.cancel_pay !== undefined) {
+      const { paymentId } = req.body;
+      if (!paymentId) {
+        return res.status(400).json({ error: 'paymentId es requerido.' });
+      }
+
+      const [checkRows] = await db.query(
+        'SELECT id, status FROM salary_payments WHERE id = ?',
+        [paymentId]
+      );
+      if (checkRows.length === 0) {
+        return res.status(404).json({ error: 'Solicitud de pago no encontrada.' });
+      }
+
+      if (checkRows[0].status !== 'pending') {
+        return res.status(400).json({ error: 'Solo se pueden cancelar pagos en estado pendiente.' });
+      }
+
+      await db.query(
+        'UPDATE salary_payments SET status = "cancelled" WHERE id = ?',
         [paymentId]
       );
 
-      return res.json({ message: 'Pago confirmado y aceptado con éxito.' });
-    }
+      // Retornar historial actualizado
+      const [paymentRows] = await db.query(
+        'SELECT id, seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name, paid_at, confirmed_at FROM salary_payments ORDER BY paid_at DESC'
+      );
 
-    // Para el resto de acciones (registrar pagos, crear usuarios), se requiere rol de administrador
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Acceso denegado.' });
+      return res.json({ message: 'Pago cancelado con éxito.', payments: paymentRows });
     }
 
     if (req.query.pay !== undefined) {
@@ -210,19 +269,19 @@ router.post('/', requireAuth, async (req, res) => {
       const totalSold = Number(b.total_sold || 0);
       const prizesTotal = Number(b.prizes_total || 0);
       const commissionAmount = Number(b.commission_amount || 0);
-      const netSalary = Number(b.net_salary || 0);
+      const netSalary = Number(b.net_salary !== undefined ? b.net_salary : commissionAmount);
 
       if (!sellerId || !startDate || !endDate) {
         return res.status(400).json({ error: 'Datos incompletos para registrar el pago.' });
       }
 
-      // Verificar superposición de fechas
+      // Verificar superposición de fechas con pagos activos (confirmados o pendientes)
       const [chkRows] = await db.query(
-        'SELECT id FROM salary_payments WHERE seller_id = ? AND NOT (end_date < ? OR start_date > ?)',
+        "SELECT id FROM salary_payments WHERE seller_id = ? AND status IN ('confirmed', 'pending') AND NOT (end_date < ? OR start_date > ?)",
         [sellerId, startDate, endDate]
       );
       if (chkRows.length > 0) {
-        return res.status(400).json({ error: 'Este periodo (o parte de él) ya ha sido registrado como pagado.' });
+        return res.status(400).json({ error: 'Este periodo (o parte de él) ya tiene un pago pendiente o confirmado.' });
       }
 
       // Insertar el pago (Pendiente por defecto, guarda quién lo solicita)

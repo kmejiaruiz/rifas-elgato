@@ -531,7 +531,7 @@ export const SettingsScreen = ({ onNavigate }) => {
               label="Nombre Comercial"
               value={businessName}
               onChangeText={setBusinessName}
-              placeholder="Amaranto"
+              placeholder="Zentric"
             />
 
             <FormInput

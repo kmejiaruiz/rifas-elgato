@@ -7,7 +7,7 @@ import { storage } from './storageService';
 
 const TOKEN_KEY = 'rifas_token';
 const API_URL_KEY = 'rifas_api_url';
-export const DEFAULT_API_URL = 'http://192.168.1.100/app/api'; // IP local por defecto sugerida para XAMPP
+export const DEFAULT_API_URL = 'https://rifas-elgato.vercel.app/api'; // URL de producción en Vercel
 
 let currentApiUrl = DEFAULT_API_URL;
 

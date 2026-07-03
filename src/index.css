@@ -966,11 +966,12 @@ select.form-control { appearance: none; cursor: pointer; }
     justify-content: flex-start;
   }
 
-  .sidebar-brand-icon {
-    font-size: 1.2rem;
-    line-height: 1;
-    filter: drop-shadow(0 0 8px rgba(167,139,250,0.6));
+  .sidebar-brand-logo {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
     flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(167,139,250,0.5));
   }
 
   .sidebar-brand-name {

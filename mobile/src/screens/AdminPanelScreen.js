@@ -106,7 +106,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
 
   const loadStates = useCallback(async () => {
     try {
-      const { configs } = await api.get('/games.php');
+      const { configs } = await api.get('/games');
       const merged = lotteries.map(l => {
         const cfg = configs?.[l.id] || {};
         return {
@@ -165,7 +165,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
 
   const toggleEnabled = async (game) => {
     try {
-      await api.put(`/games.php?id=${game.id}`, { enabled: !game.enabled });
+      await api.put(`/games?id=${game.id}`, { enabled: !game.enabled });
       await loadStates();
       await loadAllData();
     } catch (err) {
@@ -196,7 +196,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
   const saveEdit = async (gameId) => {
     setSaving(true);
     try {
-      await api.put(`/games.php?id=${gameId}`, editForm);
+      await api.put(`/games?id=${gameId}`, editForm);
       Alert.alert('Guardado', 'Configuración actualizada.');
       setEditingId(null);
       await loadStates();
@@ -219,7 +219,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await api.delete(`/games.php?id=${game.id}`);
+              await api.delete(`/games?id=${game.id}`);
               Alert.alert('Eliminado', 'Juego eliminado.');
               await loadStates();
               await loadAllData();
@@ -252,7 +252,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
     }
     setCreating(true);
     try {
-      await api.put(`/games.php?id=${lotteryId}`, { ...createForm, isCustom: true });
+      await api.put(`/games?id=${lotteryId}`, { ...createForm, isCustom: true });
       Alert.alert('¡Listo!', `Juego "${createForm.name}" creado con éxito.`);
       setCreateForm(BLANK_GAME);
       setShowCreate(false);
@@ -579,7 +579,7 @@ const NumbersTab = ({ lotteries }) => {
     if (!selectedGame) return;
     setLoading(true);
     try {
-      const { blocked: b } = await api.get(`/blocked.php?lottery_id=${selectedGame}`);
+      const { blocked: b } = await api.get(`/blocked?lottery_id=${selectedGame}`);
       setBlocked(b || []);
     } catch {}
     finally { setLoading(false); }
@@ -594,7 +594,7 @@ const NumbersTab = ({ lotteries }) => {
       return;
     }
     try {
-      await api.post('/blocked.php', { lottery_id: selectedGame, numero: val });
+      await api.post('/blocked', { lottery_id: selectedGame, numero: val });
       setNewNum(selectedGame === 'fechea' ? '01/01' : '');
       load();
     } catch (err) {
@@ -604,7 +604,7 @@ const NumbersTab = ({ lotteries }) => {
 
   const handleUnblock = async (num) => {
     try {
-      await api.delete(`/blocked.php?lottery_id=${selectedGame}&numero=${encodeURIComponent(num)}`);
+      await api.delete(`/blocked?lottery_id=${selectedGame}&numero=${encodeURIComponent(num)}`);
       load();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -621,7 +621,7 @@ const NumbersTab = ({ lotteries }) => {
           text: 'Desbloquear',
           onPress: async () => {
             try {
-              await api.delete(`/blocked.php?lottery_id=${selectedGame}&clear=1`);
+              await api.delete(`/blocked?lottery_id=${selectedGame}&clear=1`);
               load();
             } catch (err) {
               Alert.alert('Error', err.message);
@@ -942,7 +942,7 @@ const ResultsTab = ({ lotteries }) => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { results: r } = await api.get('/results.php');
+      const { results: r } = await api.get('/results');
       setResults(r || []);
     } catch {} finally { setLoading(false); }
   }, []);
@@ -989,7 +989,7 @@ const ResultsTab = ({ lotteries }) => {
   const submitAnnounce = async () => {
     setSubmitting(true);
     try {
-      const response = await api.post('/results.php', {
+      const response = await api.post('/results', {
         lotteryId:     form.lotteryId,
         fechaSorteo:   form.date,
         horaSorteo:    form.hour,
@@ -1024,7 +1024,7 @@ const ResultsTab = ({ lotteries }) => {
           text: 'Eliminar', style: 'destructive',
           onPress: async () => {
             try {
-              await api.delete(`/results.php?id=${res.id}`);
+              await api.delete(`/results?id=${res.id}`);
               await load();
             } catch (err) {
               Alert.alert('Error', err.message);
@@ -1566,7 +1566,7 @@ const SalariesTab = () => {
   const fetchReport = useCallback(async (sDate, eDate, showToast = false) => {
     setLoading(true);
     try {
-      const res = await api.get(`/users.php?report=1&start_date=${sDate}&end_date=${eDate}`);
+      const res = await api.get(`/users?report=1&start_date=${sDate}&end_date=${eDate}`);
       const rData = res.report || [];
       setReport(rData);
       setPaymentsHistory(res.payments || []);
@@ -1588,6 +1588,32 @@ const SalariesTab = () => {
       setLoading(false);
     }
   }, []);
+
+  const handleCancelPayment = async (paymentId) => {
+    Alert.alert(
+      'Confirmar cancelación',
+      '¿Está seguro de que desea cancelar esta solicitud de pago pendiente?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, Cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const res = await api.post('/users?cancel_pay=1', { paymentId });
+              Alert.alert('Éxito', res.message || 'Pago cancelado con éxito.');
+              setPaymentsHistory(res.payments || []);
+            } catch (err) {
+              Alert.alert('Error', 'No se pudo cancelar el pago: ' + err.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const [prevSelectedUserId, setPrevSelectedUserId] = useState(null);
 
@@ -1721,6 +1747,7 @@ const SalariesTab = () => {
 
   const isPeriodPaid = paymentsHistory.some(p => 
     p.seller_id === u?.id &&
+    (p.status === 'confirmed' || p.status === 'pending') &&
     !(endDateInput < p.start_date || startDateInput > p.end_date)
   );
 
@@ -1731,13 +1758,14 @@ const SalariesTab = () => {
     }
     try {
       setLoading(true);
-      const res = await api.post('/users.php?pay=1', {
+      const res = await api.post('/users?pay=1', {
         seller_id: u.id,
         start_date: startDateInput,
         end_date: endDateInput,
         total_sold: totalSold,
         prizes_total: prizesTotal,
-        commission_amount: calculatedSalary
+        commission_amount: calculatedSalary,
+        net_salary: calculatedSalary
       });
       Alert.alert('Éxito', res.message || 'Pago registrado con éxito.');
       await fetchReport(startDateInput, endDateInput);
@@ -2164,35 +2192,87 @@ const SalariesTab = () => {
               }
               return (
                 <View style={{ gap: 6 }}>
-                  {userPayments.map(p => (
-                    <View key={p.id} style={{
-                      backgroundColor: 'rgba(255,255,255,0.01)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.05)',
-                      borderRadius: 8,
-                      padding: 8,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '700', color: '#fff', fontSize: 10 }}>
-                          Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
-                        </Text>
-                        <Text style={{ fontSize: 8, color: COLORS.textMuted, marginTop: 2 }}>
-                          Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
-                        </Text>
+                  {userPayments.map(p => {
+                    let statusLabel = 'Pendiente';
+                    let statusColor = '#f59e0b';
+                    let statusBg = 'rgba(245, 158, 11, 0.12)';
+                    if (p.status === 'confirmed') {
+                      statusLabel = 'Confirmado';
+                      statusColor = '#10b981';
+                      statusBg = 'rgba(16, 185, 129, 0.12)';
+                    } else if (p.status === 'rejected') {
+                      statusLabel = 'Rechazado';
+                      statusColor = '#ef4444';
+                      statusBg = 'rgba(239, 68, 68, 0.12)';
+                    } else if (p.status === 'cancelled') {
+                      statusLabel = 'Cancelado';
+                      statusColor = '#9ca3af';
+                      statusBg = 'rgba(107, 114, 128, 0.12)';
+                    }
+
+                    return (
+                      <View key={p.id} style={{
+                        backgroundColor: 'rgba(255,255,255,0.01)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: 8,
+                        padding: 8,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8
+                      }}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={{ fontWeight: '700', color: '#fff', fontSize: 10 }}>
+                              Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
+                            </Text>
+                            <View style={{
+                              backgroundColor: statusBg,
+                              paddingVertical: 1,
+                              paddingHorizontal: 4,
+                              borderRadius: 4,
+                              borderWidth: 0.5,
+                              borderColor: statusColor + '40'
+                            }}>
+                              <Text style={{ fontSize: 7, fontWeight: '800', color: statusColor, textTransform: 'uppercase' }}>
+                                {statusLabel}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 8, color: COLORS.textMuted, marginTop: 2 }}>
+                            Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                          <Text style={{ fontWeight: '800', color: COLORS.primaryLight, fontSize: 11 }}>
+                            {formatNIO(parseFloat(p.commission_amount))}
+                          </Text>
+                          <Text style={{ fontSize: 8, color: COLORS.textMuted }}>
+                            {new Date(p.paid_at).toLocaleDateString()}
+                          </Text>
+                          {p.status === 'pending' && (
+                            <TouchableOpacity
+                              onPress={() => handleCancelPayment(p.id)}
+                              style={{
+                                marginTop: 2,
+                                paddingVertical: 2,
+                                paddingHorizontal: 6,
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                borderWidth: 0.5,
+                                borderColor: 'rgba(239, 68, 68, 0.2)',
+                                borderRadius: 4
+                              }}
+                            >
+                              <Text style={{ fontSize: 8, color: '#f87171', fontWeight: '800' }}>
+                                Cancelar
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontWeight: '800', color: COLORS.primaryLight, fontSize: 11 }}>
-                          {formatNIO(parseFloat(p.commission_amount))}
-                        </Text>
-                        <Text style={{ fontSize: 8, color: COLORS.textMuted, marginTop: 2 }}>
-                          {new Date(p.paid_at).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               );
             })()}

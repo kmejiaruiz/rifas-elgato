@@ -4,8 +4,8 @@ export const can = (user, action) => {
   const perms = {
     admin:    ['sell','annul','viewHistory','manageGames','manageUsers','closeNumbers','settings'],
     vendedor: ['sell','annul','viewHistory','settings'],
-    // root solo puede controlar la disponibilidad — no opera la app
-    root:     ['rootControl'],
+    // root tiene control total sobre la app, incluyendo todas las funciones de admin
+    root:     ['sell','annul','viewHistory','manageGames','manageUsers','closeNumbers','settings','rootControl'],
   };
   return (perms[user.role] || []).includes(action);
 };

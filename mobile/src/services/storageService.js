@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // storageService — Almacenamiento local para Móvil
 // Usa AsyncStorage para datos generales.
 // Para tokens: SecureStore en nativo (iOS/Android),
@@ -98,7 +98,7 @@ export const getSalesByFilter = async (filters = {}) => {
   if (filters.sellerId)  params.append('seller_id',  filters.sellerId);
 
   const qs = params.toString();
-  const res = await api.get(`/sales.php${qs ? `?${qs}` : ''}`);
+  const res = await api.get(`/sales${qs ? `?${qs}` : ''}`);
   return res.sales || [];
 };
 
@@ -108,7 +108,7 @@ export const getSalesByFilter = async (filters = {}) => {
  */
 export const getResults = async () => {
   try {
-    const res = await api.get('/results.php');
+    const res = await api.get('/results');
     return res.results || [];
   } catch {
     return [];

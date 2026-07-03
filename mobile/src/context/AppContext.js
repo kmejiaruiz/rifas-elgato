@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // AppContext — Contexto Global de Datos para Móvil
 // Sincroniza todos los datos del API: settings, juegos, ventas, resumen
 // ============================================================
@@ -22,7 +22,7 @@ const initialState = {
   sales: [],
   dailySummary: { total: 0, count: 0, byType: {}, cancelled: 0 },
   settings: {
-    businessName: 'Amaranto',
+    businessName: 'Zentric',
     currency: 'NIO',
     autoprint: true,
     drawCloseMinutes: 10,
@@ -64,7 +64,7 @@ const reducer = (state, action) => {
 
 // ─── Parseador de settings del API ───────────────────────────
 const parseSettings = (raw = {}) => ({
-  businessName:     raw.businessName     || 'Amaranto',
+  businessName:     raw.businessName     || 'Zentric',
   currency:         raw.currency         || 'NIO',
   autoprint:        raw.autoprint === 'true' || raw.autoprint === true,
   drawCloseMinutes: Number(raw.drawCloseMinutes || 10),
@@ -93,7 +93,7 @@ export const AppProvider = ({ children }) => {
 
     const ping = async () => {
       try {
-        await api.get('/settings.php');
+        await api.get('/settings');
         if (!isServerConnected) {
           setIsServerConnected(true);
         }
@@ -145,7 +145,7 @@ export const AppProvider = ({ children }) => {
 
         for (const item of queue) {
           try {
-            const res = await api.post('/sales.php', item.data);
+            const res = await api.post('/sales', item.data);
             const sale = res.sales ? res.sales[0] : res.sale;
             syncedCount++;
             totalSyncedMonto += parseFloat(sale.monto || 0);
@@ -216,7 +216,7 @@ export const AppProvider = ({ children }) => {
   // ─── Refresco del resumen diario ──────────────────────────
   const refreshSummary = useCallback(async () => {
     try {
-      const summary = await api.get('/sales.php?summary=1');
+      const summary = await api.get('/sales?summary=1');
       dispatch({ type: 'SET_DAILY_SUMMARY', payload: summary });
     } catch {}
   }, []);
@@ -240,10 +240,10 @@ export const AppProvider = ({ children }) => {
     };
 
     try {
-      const pSales = api.get('/sales.php').then(res => { tick('ventas'); return res; });
-      const pSummary = api.get('/sales.php?summary=1').then(res => { tick('resumen'); return res; });
-      const pSettings = api.get('/settings.php').then(res => { tick('ajustes'); return res; });
-      const pGames = api.get('/games.php').then(res => { tick('juegos'); return res; });
+      const pSales = api.get('/sales').then(res => { tick('ventas'); return res; });
+      const pSummary = api.get('/sales?summary=1').then(res => { tick('resumen'); return res; });
+      const pSettings = api.get('/settings').then(res => { tick('ajustes'); return res; });
+      const pGames = api.get('/games').then(res => { tick('juegos'); return res; });
 
       const [salesRes, summaryRes, settingsRes, gamesRes] = await Promise.all([
         pSales,
@@ -303,7 +303,7 @@ export const AppProvider = ({ children }) => {
     }
 
     try {
-      const res = await api.post('/sales.php', saleData);
+      const res = await api.post('/sales', saleData);
       setIsServerConnected(true);
       if (res.sales && Array.isArray(res.sales)) {
         res.sales.forEach(s => {
@@ -337,7 +337,7 @@ export const AppProvider = ({ children }) => {
   // ─── Anular venta ─────────────────────────────────────────
   const annulSale = useCallback(async (id, adminCreds = null) => {
     try {
-      const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}`, adminCreds);
+      const { sale } = await api.put(`/sales?id=${encodeURIComponent(id)}`, adminCreds);
       dispatch({ type: 'UPDATE_SALE', payload: sale });
       await refreshSummary();
       Alert.alert('Éxito', 'Venta anulada correctamente');
@@ -351,7 +351,7 @@ export const AppProvider = ({ children }) => {
   // ─── Pagar premio ─────────────────────────────────────────
   const paySalePrize = useCallback(async (id) => {
     try {
-      const { sale } = await api.put(`/sales.php?id=${encodeURIComponent(id)}&pay_prize=1`);
+      const { sale } = await api.put(`/sales?id=${encodeURIComponent(id)}&pay_prize=1`);
       dispatch({ type: 'UPDATE_SALE', payload: sale });
       await refreshSummary();
       Alert.alert('Éxito', 'Premio marcado como pagado');
@@ -370,7 +370,7 @@ export const AppProvider = ({ children }) => {
         autoprint:        String(newSettings.autoprint ?? true),
         drawCloseMinutes: String(newSettings.drawCloseMinutes ?? 10),
       };
-      await api.put('/settings.php', payload);
+      await api.put('/settings', payload);
       dispatch({ type: 'SET_SETTINGS', payload: newSettings });
       await storage.set('cached_settings', newSettings);
       Alert.alert('Ajustes Guardados', 'Los parámetros se actualizaron en el servidor.');

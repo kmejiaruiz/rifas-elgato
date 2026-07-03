@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // gameService — ahora usa MySQL vía API PHP
 // Sin sorteos: los números bloqueados son por juego únicamente
 // ============================================================
@@ -9,7 +9,7 @@ import { api } from './apiService';
 /** Retorna map { lottery_id → config } de la BD */
 export const getGameConfigs = async () => {
   try {
-    const { configs } = await api.get('/games.php');
+    const { configs } = await api.get('/games');
     return configs || {};
   } catch {
     return {};
@@ -18,7 +18,7 @@ export const getGameConfigs = async () => {
 
 /** Habilita o deshabilita un juego */
 export const setGameEnabled = async (lotteryId, enabled) => {
-  await api.put(`/games.php?id=${lotteryId}`, { enabled });
+  await api.put(`/games?id=${lotteryId}`, { enabled });
 };
 
 /** Verifica si un juego está habilitado */
@@ -30,12 +30,12 @@ export const isGameEnabled = async (lotteryId) => {
 
 /** Guarda configuración personalizada de un juego */
 export const saveGameConfig = async (lotteryId, config) => {
-  await api.put(`/games.php?id=${lotteryId}`, config);
+  await api.put(`/games?id=${lotteryId}`, config);
 };
 
 /** Elimina un juego personalizado */
 export const deleteGameConfig = async (lotteryId) => {
-  await api.delete(`/games.php?id=${lotteryId}`);
+  await api.delete(`/games?id=${lotteryId}`);
 };
 
 /** Retorna los juegos deshabilitados como array de IDs */
@@ -78,7 +78,7 @@ export const getAllGameStates = async (lotteryList) => {
 
 export const getBlockedNumbers = async (lotteryId) => {
   try {
-    const { blocked } = await api.get(`/blocked.php?lottery_id=${lotteryId}`);
+    const { blocked } = await api.get(`/blocked?lottery_id=${lotteryId}`);
     return blocked || [];
   } catch {
     return [];
@@ -86,15 +86,15 @@ export const getBlockedNumbers = async (lotteryId) => {
 };
 
 export const blockNumber = async (lotteryId, number) => {
-  await api.post('/blocked.php', { lottery_id: lotteryId, numero: String(number) });
+  await api.post('/blocked', { lottery_id: lotteryId, numero: String(number) });
 };
 
 export const unblockNumber = async (lotteryId, number) => {
-  await api.delete(`/blocked.php?lottery_id=${lotteryId}&numero=${encodeURIComponent(number)}`);
+  await api.delete(`/blocked?lottery_id=${lotteryId}&numero=${encodeURIComponent(number)}`);
 };
 
 export const clearBlockedNumbers = async (lotteryId) => {
-  await api.delete(`/blocked.php?lottery_id=${lotteryId}&all=1`);
+  await api.delete(`/blocked?lottery_id=${lotteryId}&all=1`);
 };
 
 export const isNumberBlocked = async (lotteryId, number) => {

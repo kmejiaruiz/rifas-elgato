@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { getDB } = require('../config/db');
 const {
   requireAuth,
@@ -9,6 +10,33 @@ const {
   normalizeSale,
   auditLog
 } = require('../utils/helpers');
+
+async function fillMultiHours(db, sales) {
+  if (!sales || sales.length === 0) return sales;
+  const multiSaleIds = [...new Set(sales.map(s => s.multiSaleId).filter(Boolean))];
+  if (multiSaleIds.length > 0) {
+    const [hoursRows] = await db.query(
+      'SELECT multi_sale_id, hora_sorteo FROM sales WHERE multi_sale_id IN (?)',
+      [multiSaleIds]
+    );
+    const multiHoursMap = {};
+    hoursRows.forEach(row => {
+      const mid = row.multi_sale_id;
+      if (!multiHoursMap[mid]) {
+        multiHoursMap[mid] = [];
+      }
+      if (!multiHoursMap[mid].includes(row.hora_sorteo)) {
+        multiHoursMap[mid].push(row.hora_sorteo);
+      }
+    });
+    sales.forEach(s => {
+      if (s.multiSaleId && multiHoursMap[s.multiSaleId]) {
+        s.multiHours = multiHoursMap[s.multiSaleId];
+      }
+    });
+  }
+  return sales;
+}
 
 // ─── GET /api/sales ➔ Listar o Resumen Diario de ventas ──────────
 router.get('/', requireAuth, async (req, res) => {
@@ -150,6 +178,7 @@ router.get('/', requireAuth, async (req, res) => {
     const ids = sales.map(s => s.id);
     const linesMap = await loadLines(db, ids);
     const result = sales.map(s => normalizeSale(s, linesMap[s.id] || []));
+    await fillMultiHours(db, result);
 
     res.json({ sales: result });
 
@@ -379,6 +408,7 @@ router.post('/', requireAuth, async (req, res) => {
     const [sales] = await db.query(`SELECT * FROM sales WHERE id IN (${placeholders})`, createdIds);
     const linesMap = await loadLines(db, createdIds);
     const result = sales.map(s => normalizeSale(s, linesMap[s.id] || []));
+    await fillMultiHours(db, result);
 
     if (!multiSaleId) {
       res.status(201).json({ sale: result[0] });
@@ -410,7 +440,7 @@ router.put('/', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Boleto no encontrado.' });
     }
 
-    if (user.role !== 'admin' && sale.seller_id !== user.id) {
+    if (user.role !== 'admin' && user.role !== 'root' && sale.seller_id !== user.id) {
       return res.status(403).json({ error: 'No tienes permiso para interactuar con esta venta.' });
     }
 
@@ -468,7 +498,9 @@ router.put('/', requireAuth, async (req, res) => {
 
       const [updatedSaleRows] = await db.query('SELECT * FROM sales WHERE id = ?', [id]);
       const updatedLinesMap = await loadLines(db, [id]);
-      return res.json({ sale: normalizeSale(updatedSaleRows[0], updatedLinesMap[id] || []) });
+      const normSale = normalizeSale(updatedSaleRows[0], updatedLinesMap[id] || []);
+      const [finalSale] = await fillMultiHours(db, [normSale]);
+      return res.json({ sale: finalSale });
     }
 
     // Caso B: Anular Boleto
@@ -508,7 +540,7 @@ router.put('/', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'No se puede realizar la acción: este boleto pertenece a un sorteo que ya fue anunciado.' });
     }
 
-    const requiresAdmin = (user.role !== 'admin') || hasAnnouncedDraw;
+    const requiresAdmin = (user.role !== 'admin' && user.role !== 'root') || hasAnnouncedDraw;
     let cancelledByName = user.name;
 
     if (requiresAdmin) {
@@ -516,7 +548,7 @@ router.put('/', requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Para realizar esta acción se requieren credenciales de administrador.' });
       }
 
-      const [admRows] = await db.query('SELECT * FROM users WHERE username = ? AND role = "admin" AND active = 1', [
+      const [admRows] = await db.query('SELECT * FROM users WHERE username = ? AND role IN ("admin", "root") AND active = 1', [
         adminUsername
       ]);
       const admUser = admRows[0];
@@ -553,7 +585,9 @@ router.put('/', requireAuth, async (req, res) => {
 
     const [updatedSaleRows] = await db.query('SELECT * FROM sales WHERE id = ?', [id]);
     const updatedLinesMap = await loadLines(db, [id]);
-    res.json({ sale: normalizeSale(updatedSaleRows[0], updatedLinesMap[id] || []) });
+    const normSale = normalizeSale(updatedSaleRows[0], updatedLinesMap[id] || []);
+    const [finalSale] = await fillMultiHours(db, [normSale]);
+    res.json({ sale: finalSale });
 
   } catch (err) {
     console.error('Error en PUT /api/sales:', err.message);

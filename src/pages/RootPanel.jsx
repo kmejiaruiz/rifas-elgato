@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // RootPanel — Panel de control exclusivo para el usuario root
 // Permite gestionar la disponibilidad de la aplicación.
 // La acción "Reactivar" requiere confirmar credenciales root.
@@ -37,8 +37,8 @@ const RootCredentialsModal = ({ onConfirm, onClose }) => {
     setLoading(true);
     setError('');
     try {
-      // Verifica credenciales sin crear sesión — POST /root.php
-      const { role } = await api.post('/root.php', { username, password });
+      // Verifica credenciales sin crear sesión — POST /root
+      const { role } = await api.post('/root', { username, password });
       if (role !== 'root') {
         // Credenciales válidas pero NO son root
         setInsufficientPerms(true);
@@ -289,7 +289,7 @@ export const RootPanel = () => {
     setDbStatus('checking');
     setDbError('');
     try {
-      const res = await api.get('/health.php');
+      const res = await api.get('/health');
       if (res && res.database === 'connected') {
         setDbStatus('connected');
       } else {
@@ -306,7 +306,7 @@ export const RootPanel = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await api.get('/settings.php');
+        const res = await api.get('/settings');
         if (res && res.settings) {
           setBypassCode(res.settings.bypassCode || '1005199611712301977');
         }
@@ -326,7 +326,7 @@ export const RootPanel = () => {
     }
     setLoading(true);
     try {
-      await api.put('/settings.php', { bypassCode: bypassCode.trim() });
+      await api.put('/settings', { bypassCode: bypassCode.trim() });
       toast.success('Código de recuperación actualizado.');
     } catch (err) {
       toast.error('Error al guardar el código: ' + err.message);
@@ -338,7 +338,7 @@ export const RootPanel = () => {
   const doAction = async (action, extraData = {}) => {
     setLoading(true);
     try {
-      await api.put('/root.php', { action, ...extraData });
+      await api.put('/root', { action, ...extraData });
       await refreshStatus();
       const messages = {
         disable:  'Aplicación desactivada correctamente.',

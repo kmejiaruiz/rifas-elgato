@@ -83,7 +83,7 @@ const centerLine = (text) => {
 
 // ─── Formateo del boleto para impresión ──────────────────────
 
-const buildTicketBytes = (sale, businessName = 'Amaranto') => {
+const buildTicketBytes = (sale, businessName = 'Zentric') => {
   const lottery = getLotteryById(sale.lotteryId);
   if (!lottery) throw new Error('Tipo de rifa inválido');
 
@@ -113,7 +113,7 @@ const buildTicketBytes = (sale, businessName = 'Amaranto') => {
 
   // ─ Jugadas ─
   const lines = sale.lines || [];
-  if (lines.length > 10) {
+  if (lines.length > 5) {
     // Boleto resumido por rango
     let rangeTxt = '';
     const unitM = parseFloat(lines[0]?.monto || 0);
@@ -289,7 +289,7 @@ const sendChunked = async (data) => {
  * @param {Object} sale - Datos de la venta
  * @param {string} businessName - Nombre del negocio (aparece en el encabezado)
  */
-export const printTicket = async (sale, businessName = 'Amaranto') => {
+export const printTicket = async (sale, businessName = 'Zentric') => {
   if (!isPrinterConnected()) {
     throw new Error('No hay impresora conectada. Ve a Configuración > Impresora.');
   }
@@ -312,7 +312,7 @@ export const printTestPage = async () => {
     ...Array.from([0x1b, 0x61, 0x01]),    // CENTER
     ...Array.from(encoder.encode('=== PRUEBA DE IMPRESION ===')),
     0x0a,
-    ...Array.from(encoder.encode('Amaranto')),
+    ...Array.from(encoder.encode('Zentric')),
     0x0a,
     ...Array.from(encoder.encode('Impresora conectada OK')),
     0x0a, 0x0a, 0x0a,
@@ -328,7 +328,7 @@ export const printTestPage = async () => {
  * @param {string} businessName
  * @returns {string}
  */
-export const getTicketPreviewText = (sale, businessName = 'Amaranto') => {
+export const getTicketPreviewText = (sale, businessName = 'Zentric') => {
   const lottery = getLotteryById(sale.lotteryId);
   if (!lottery) return '';
 

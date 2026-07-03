@@ -1,6 +1,6 @@
 // ============================================================
-// Cliente HTTP para la API PHP/MySQL
-// Maneja token Bearer, CSRF, errores y redirección por sesión expirada
+// Cliente HTTP para la API Node.js/Express
+// Maneja token Bearer, errores y redirección por sesión expirada
 // ============================================================
 
 const TOKEN_KEY = 'rifas_token';

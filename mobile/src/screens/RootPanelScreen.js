@@ -10,12 +10,13 @@ import {
 import {
   ShieldAlert, Power, Clock, CheckCircle,
   AlertTriangle, RefreshCw, LogOut, Activity,
-  User, Lock, XCircle,
+  User, Lock, XCircle, Server, Wifi, Save
 } from 'lucide-react-native';
-import { api } from '../services/apiService';
+import { api, getApiUrl, setApiUrl } from '../services/apiService';
 import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { FormInput } from '../components/FormInput';
+import { useApp } from '../context/AppContext';
 
 // ─── Modal de confirmación de credenciales root ───────────────
 const RootCredentialsModal = ({ visible, onConfirm, onClose }) => {
@@ -151,6 +152,8 @@ const RootCredentialsModal = ({ visible, onConfirm, onClose }) => {
 
 // ─── Componente Principal ─────────────────────────────────────
 export const RootPanelScreen = ({ onLogout }) => {
+  const { loadAllData } = useApp();
+
   const [appControl, setAppControl] = useState({
     status: 'active',
     disableAt: 'never',
@@ -162,6 +165,119 @@ export const RootPanelScreen = ({ onLogout }) => {
   const [showCredModal, setShowCredModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'restore' | 'cancelTimer'
   const [localTime, setLocalTime] = useState(new Date());
+
+  // --- API URL States & Helpers ---
+  const parseApiUrlString = (urlStr) => {
+    let protocol = 'https://';
+    let host = '';
+    let port = '';
+    let path = '/api';
+
+    if (urlStr) {
+      let temp = urlStr.trim();
+      if (temp.startsWith('http://')) {
+        protocol = 'http://';
+        temp = temp.replace('http://', '');
+      } else if (temp.startsWith('https://')) {
+        protocol = 'https://';
+        temp = temp.replace('https://', '');
+      }
+
+      const slashIndex = temp.indexOf('/');
+      let hostPort = temp;
+      if (slashIndex !== -1) {
+        hostPort = temp.substring(0, slashIndex);
+        path = temp.substring(slashIndex);
+      } else {
+        path = '';
+      }
+
+      if (hostPort.includes(':')) {
+        const parts = hostPort.split(':');
+        host = parts[0];
+        port = parts[1];
+      } else {
+        host = hostPort;
+      }
+    }
+
+    return { protocol, host, port, path };
+  };
+
+  const parsed = parseApiUrlString(getApiUrl());
+  const [apiProtocol, setApiProtocol] = useState(parsed.protocol);
+  const [apiHost, setApiHost] = useState(parsed.host);
+  const [apiPort, setApiPort] = useState(parsed.port);
+  const [apiPath, setApiPath] = useState(parsed.path || '/api');
+
+  const [apiSaving, setApiSaving]  = useState(false);
+  const [apiStatus, setApiStatus]  = useState(null); // null | 'ok' | 'error'
+  const [apiChecking, setApiChecking] = useState(false);
+
+  const getBuiltApiUrl = () => {
+    const host = apiHost.trim();
+    const port = apiPort.trim();
+    const path = apiPath.trim();
+
+    if (!host) return '';
+
+    let url = `${apiProtocol}${host}`;
+    if (port) {
+      url += `:${port}`;
+    }
+    if (path) {
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      url += cleanPath;
+    }
+    return url;
+  };
+
+  const handleSaveApiUrl = async () => {
+    const fullUrl = getBuiltApiUrl();
+    if (!fullUrl) {
+      Alert.alert('Servidor requerido', 'Ingrese la IP o dominio del servidor.');
+      return;
+    }
+    setApiSaving(true);
+    try {
+      await setApiUrl(fullUrl);
+      Alert.alert(
+        'Servidor Actualizado',
+        `URL guardada: ${getApiUrl()}\n\nSe sincronizarán los datos automáticamente.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              loadAllData();
+            }
+          }
+        ]
+      );
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setApiSaving(false);
+    }
+  };
+
+  const handleCheckApi = async () => {
+    const fullUrl = getBuiltApiUrl();
+    if (!fullUrl) {
+      Alert.alert('Servidor requerido', 'Ingrese la IP o dominio del servidor.');
+      return;
+    }
+    setApiChecking(true);
+    setApiStatus(null);
+    try {
+      await setApiUrl(fullUrl);
+      await api.get('/settings.php');
+      setApiStatus('ok');
+    } catch {
+      setApiStatus('error');
+    } finally {
+      setApiChecking(false);
+    }
+  };
 
   // Reloj en tiempo real
   useEffect(() => {
@@ -410,6 +526,104 @@ export const RootPanelScreen = ({ onLogout }) => {
             </Text>
           </View>
         )}
+
+        {/* ─── URL del Servidor ────────────────────────────────── */}
+        <GlassCard style={styles.card}>
+          <View style={styles.sectionHeaderRow}>
+            <Server size={15} color={COLORS.primaryLight} />
+            <Text style={styles.sectionTitleInline}>Servidor de API</Text>
+          </View>
+          <Text style={styles.sectionDesc}>
+            Dirección IP o dominio de tu servidor XAMPP/Vercel. Todos los datos se cargan desde aquí.
+          </Text>
+
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 }}>Protocolo</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            {['http://', 'https://'].map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={{
+                  flex: 1,
+                  height: 38,
+                  borderRadius: 8,
+                  backgroundColor: apiProtocol === p ? COLORS.primary : 'rgba(255,255,255,0.05)',
+                  borderWidth: 1,
+                  borderColor: apiProtocol === p ? COLORS.primaryLight : 'rgba(255,255,255,0.08)',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onPress={() => setApiProtocol(p)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <FormInput
+            label="Servidor (IP o Dominio)"
+            value={apiHost}
+            onChangeText={setApiHost}
+            placeholder="192.168.1.103 o tu-app.vercel.app"
+            autoCapitalize="none"
+          />
+
+          <FormInput
+            label="Puerto (Opcional)"
+            value={apiPort}
+            onChangeText={setApiPort}
+            placeholder="3000"
+            keyboardType="numeric"
+          />
+
+          <FormInput
+            label="Ruta Base (Path)"
+            value={apiPath}
+            onChangeText={setApiPath}
+            placeholder="/api"
+            autoCapitalize="none"
+          />
+
+          <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4, marginBottom: 12 }}>
+            URL Generada: <Text style={{ color: COLORS.primaryLight, fontWeight: '700' }}>{getBuiltApiUrl() || 'Incompleta'}</Text>
+          </Text>
+
+          {apiStatus === 'ok' && (
+            <View style={styles.apiStatusOk}>
+              <CheckCircle size={13} color={COLORS.successLight} />
+              <Text style={styles.apiStatusOkText}>Conexión exitosa con el servidor ✓</Text>
+            </View>
+          )}
+          {apiStatus === 'error' && (
+            <View style={styles.apiStatusError}>
+              <Wifi size={13} color={COLORS.dangerLight} />
+              <Text style={styles.apiStatusErrorText}>No se pudo conectar al servidor.</Text>
+            </View>
+          )}
+
+          <View style={styles.apiActions}>
+            <TouchableOpacity
+              style={[styles.testBtn, apiChecking && { opacity: 0.6 }]}
+              onPress={handleCheckApi}
+              disabled={apiChecking}
+              activeOpacity={0.8}
+            >
+              {apiChecking
+                ? <ActivityIndicator size="small" color={COLORS.primaryLight} />
+                : <View style={styles.btnInner}><Wifi size={13} color={COLORS.primaryLight} /><Text style={styles.testBtnText}>Probar</Text></View>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveApiBtn, apiSaving && { opacity: 0.6 }]}
+              onPress={handleSaveApiUrl}
+              disabled={apiSaving}
+              activeOpacity={0.8}
+            >
+              {apiSaving
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <View style={styles.btnInner}><Save size={13} color="#fff" /><Text style={styles.saveApiBtnText}>Guardar y Conectar</Text></View>}
+            </TouchableOpacity>
+          </View>
+        </GlassCard>
       </ScrollView>
 
       {/* Credentials Modal */}
@@ -515,4 +729,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(52,211,153,0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)'
   },
   confirmBtnText: { color: '#34d399', fontWeight: '800', fontSize: 12 },
+
+  // API URL Config Styles
+  apiStatusOk: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 6, padding: 8, marginBottom: 8,
+  },
+  apiStatusOkText: { fontSize: 11, color: '#34d399', fontWeight: '600' },
+  apiStatusError: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: 8, marginBottom: 8,
+  },
+  apiStatusErrorText: { fontSize: 11, color: '#f87171', fontWeight: '600', flex: 1 },
+  apiActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  testBtn: {
+    flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: 'rgba(124,58,237,0.12)', borderRadius: 8,
+    borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)',
+  },
+  testBtnText: { color: COLORS.primaryLight, fontWeight: '700', fontSize: 12 },
+  saveApiBtn: {
+    flex: 2, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: COLORS.primary, borderRadius: 8,
+  },
+  saveApiBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  sectionTitleInline: {
+    fontSize: 11, fontWeight: '800', color: '#fff',
+    textTransform: 'uppercase', letterSpacing: 0.5, flex: 1,
+  },
+  btnInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
 });

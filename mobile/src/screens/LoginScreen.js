@@ -20,11 +20,24 @@ export const LoginScreen = () => {
   
   const [showConfig, setShowConfig] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [logoTaps, setLogoTaps] = useState(0);
 
   // Cargar URL inicial de API
   useEffect(() => {
     setApiUrlInput(getApiUrl());
   }, []);
+
+  const handleLogoTap = () => {
+    setLogoTaps(prev => {
+      const next = prev + 1;
+      if (next >= 5) {
+        setShowConfig(true);
+        Alert.alert('Modo Soporte', 'Ajustes de red desbloqueados.');
+        return 0;
+      }
+      return next;
+    });
+  };
 
   const handleLoginSubmit = async () => {
     if (!username.trim() || !password) {
@@ -61,9 +74,11 @@ export const LoginScreen = () => {
 
         {/* Logo y Encabezado */}
         <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Ticket size={40} color="#fff" />
-          </View>
+          <TouchableOpacity onPress={handleLogoTap} activeOpacity={1}>
+            <View style={styles.logoBadge}>
+              <Ticket size={40} color="#fff" />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.title}>Amaranto</Text>
           <Text style={styles.subtitle}>Inicie sesión para continuar</Text>
         </View>
@@ -85,18 +100,6 @@ export const LoginScreen = () => {
             placeholder="••••••••"
             secureTextEntry
           />
-
-          {/* Configuración de Servidor API (Editable) */}
-          <TouchableOpacity
-            style={styles.toggleConfig}
-            onPress={() => setShowConfig(!showConfig)}
-            activeOpacity={0.7}
-          >
-            <Server size={14} color={COLORS.textSecondary} style={{ marginRight: 6 }} />
-            <Text style={styles.toggleText}>
-              {showConfig ? 'Ocultar ajustes de red' : 'Configurar servidor API'}
-            </Text>
-          </TouchableOpacity>
 
           {showConfig && (
             <FormInput

@@ -25,7 +25,7 @@ import { DialogProvider } from './components/ui/DialogProvider';
 import { WinnerNotification, NotificationPermissionBanner } from './components/ui/WinnerNotification';
 import {
   LayoutDashboard, Ticket, ClipboardList,
-  Settings as SettingsIcon, Shield, LogOut,
+  Settings as SettingsIcon, Shield, LogOut, Wifi,
 } from 'lucide-react';
 
 // ─── Reloj en tiempo real (solo PC) ─────────────────────────
@@ -87,6 +87,7 @@ const AppShell = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { isBlocked } = useAppStatus();
+  const { isServerConnected, showOfflineModal, setShowOfflineModal } = useApp();
   const isAdmin = user?.role === 'admin';
 
   const NAV_ITEMS = [
@@ -154,7 +155,30 @@ const AppShell = () => {
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+            {/* Indicador de conexión al Servidor */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.25rem 0.65rem',
+              borderRadius: '99px',
+              background: isServerConnected ? 'rgba(52,211,153,0.06)' : 'rgba(239,68,68,0.06)',
+              border: `1px solid ${isServerConnected ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.15)'}`,
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: isServerConnected ? '#34d399' : '#f87171',
+              userSelect: 'none',
+            }} title={isServerConnected ? "Servidor conectado" : "Servidor desconectado (modo local activo)"}>
+              <div className={isServerConnected ? "" : "pulse-red"} style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: isServerConnected ? '#34d399' : '#f87171',
+                boxShadow: `0 0 8px ${isServerConnected ? '#34d399' : '#f87171'}`,
+              }} />
+              <span>{isServerConnected ? 'Online' : 'Local'}</span>
+            </div>
             <HeaderClock />
             <PrinterStatus />
             <button
@@ -205,6 +229,76 @@ const AppShell = () => {
 
       {/* Modal de bloqueo — se superpone sobre todo cuando root desactiva la app */}
       {isBlocked && <AppBlockedModal />}
+
+      {/* Modal de advertencia de conexión caída al intentar vender */}
+      {showOfflineModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(7, 9, 21, 0.75)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '1rem',
+          animation: 'rootModalFadeIn 0.3s ease-out',
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: '24px', padding: '1.75rem', width: '100%', maxWidth: '420px',
+            animation: 'rootModalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem'
+              }}>
+                <Wifi size={24} color="#f87171" className="pulse-network" />
+              </div>
+              
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f1f5f9', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                Conexión Caída
+              </h3>
+              
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.5rem', textAlign: 'center' }}>
+                La comunicación con el servidor de sorteos se ha interrumpido. No te preocupes: puedes seguir vendiendo boletos sin problemas. El sistema los guardará localmente y se sincronizarán al servidor de forma automática cuando se restablezca la conexión.
+              </p>
+              
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowOfflineModal(false)}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '12px',
+                  fontWeight: 700, background: 'var(--primary)', color: '#fff',
+                  border: '1px solid var(--primary-light)', cursor: 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Animaciones de pulso de red */}
+      <style>{`
+        @keyframes pulseRed {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.4); opacity: 0.6; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .pulse-red {
+          animation: pulseRed 1.8s ease-in-out infinite;
+        }
+        @keyframes pulseNetwork {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.8; }
+        }
+        .pulse-network {
+          animation: pulseNetwork 1.5s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };

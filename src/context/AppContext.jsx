@@ -1,7 +1,7 @@
 // ============================================================
 // Contexto global de la app — ventas, resumen del día, settings
 // ============================================================
-import { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef } from 'react';
 import {
   getAllSales,
   saveSale,
@@ -72,6 +72,47 @@ const AppContext = createContext(null);
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  const [isServerConnected, setIsServerConnected] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+
+  // Pinger de conexión al servidor en segundo plano
+  useEffect(() => {
+    let timer = null;
+
+    const ping = async () => {
+      try {
+        // Hacemos fetch simple a /api/health para verificar conexión
+        const res = await fetch('/api/health').catch(() => { throw new Error('Offline'); });
+        if (res && res.ok) {
+          setIsServerConnected(true);
+        } else {
+          setIsServerConnected(false);
+        }
+      } catch {
+        setIsServerConnected(false);
+      }
+    };
+
+    ping();
+    timer = setInterval(ping, 12000); // comprobar cada 12 segundos
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sync Engine: detecta el cambio de isServerConnected de false -> true
+  const prevConnected = useRef(true);
+  useEffect(() => {
+    if (isServerConnected && !prevConnected.current && !isSyncing) {
+      const runSync = async () => {
+        setIsSyncing(true);
+        await syncOfflineData(dispatch);
+        setIsSyncing(false);
+      };
+      runSync();
+    }
+    prevConnected.current = isServerConnected;
+  }, [isServerConnected, isSyncing]);
 
   useEffect(() => {
     const handlePrompt = (e) => {
@@ -180,6 +221,9 @@ export const AppProvider = ({ children }) => {
   const addSale = useCallback(async (saleData) => {
     try {
       const saved = await saveSale(saleData);
+      if (saved && saved.isOffline) {
+        setShowOfflineModal(true);
+      }
       if (saved && saved.sales && Array.isArray(saved.sales)) {
         saved.sales.forEach(s => {
           dispatch({ type: 'ADD_SALE', payload: s });
@@ -255,6 +299,10 @@ export const AppProvider = ({ children }) => {
         refreshSummary,
         loadAllData,
         installPwa: deferredPrompt ? installPwa : null,
+        isServerConnected,
+        isSyncing,
+        showOfflineModal,
+        setShowOfflineModal,
       }}
     >
       {children}

@@ -11,8 +11,11 @@ const isOnline = () => navigator.onLine;
 // ─── Ventas ──────────────────────────────────────────────────
 
 export const saveSale = async (saleData) => {
-  if (!isOnline()) {
-    // Modo offline
+  try {
+    const res = await api.post('/sales.php', saleData);
+    return res.sales ? res.sales[0] : res.sale;
+  } catch (err) {
+    // Modo offline como fallback si falla la conexión
     const queue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
     const tempId = `temp_sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -49,9 +52,6 @@ export const saveSale = async (saleData) => {
     queue.push({ id: tempId, data: saleData });
     localStorage.setItem('offline_sales_queue', JSON.stringify(queue));
     
-    // Mostrar alerta nativa requerida por el usuario
-    alert("Las ventas realizadas en offline se cargarán luego al servidor cuando se conecte a la red.");
-    
     // Guardar temporalmente en ventas locales en cache para que persista en refrescos offline
     const cachedSales = JSON.parse(localStorage.getItem('cached_sales') || '[]');
     cachedSales.unshift(mockSale);
@@ -59,10 +59,6 @@ export const saveSale = async (saleData) => {
     
     return mockSale;
   }
-
-  // Modo online
-  const res = await api.post('/sales.php', saleData);
-  return res.sales ? res : res.sale;
 };
 
 export const getAllSales = async () => {

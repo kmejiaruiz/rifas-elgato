@@ -2,8 +2,8 @@
 // AppContext — Contexto Global de Datos para Móvil
 // Sincroniza todos los datos del API: settings, juegos, ventas, resumen
 // ============================================================
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
-import { Alert, AppState } from 'react-native';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef } from 'react';
+import { Alert, AppState, ToastAndroid, Platform } from 'react-native';
 import { api } from '../services/apiService';
 import { storage } from '../services/storageService';
 import { useAuth } from './AuthContext';
@@ -114,57 +114,60 @@ export const AppProvider = ({ children }) => {
     return () => clearInterval(timer);
   }, [user, isServerConnected]);
 
-  // Sync Engine: detecta el cambio de isServerConnected de false -> true
+  // Helper para mostrar notificaciones toast nativas
+  const showToast = (message) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.LONG);
+    } else {
+      Alert.alert('Notificación', message);
+    }
+  };
+
+  // Sync Engine: detecta el cambio de isServerConnected de false -> true (Re-establecido)
+  const prevConnected = useRef(true);
   useEffect(() => {
-    if (!isServerConnected || isSyncing) return;
+    if (isServerConnected && !isSyncing) {
+      const runSync = async () => {
+        const queue = await storage.get('offline_sales_queue') || [];
+        if (queue.length === 0) return;
 
-    const runSync = async () => {
-      const queue = await storage.get('offline_sales_queue') || [];
-      if (queue.length === 0) return;
+        setIsSyncing(true);
 
-      setIsSyncing(true);
-
-      // Alerta de inicio de sincronización
-      Alert.alert(
-        'Conexión restablecida',
-        'Sincronizando documentos pendientes en el servidor, favor espere...'
-      );
-
-      let syncedCount = 0;
-      let totalSyncedMonto = 0;
-      const remainingQueue = [];
-
-      for (const item of queue) {
-        try {
-          const res = await api.post('/sales.php', item.data);
-          const sale = res.sales ? res.sales[0] : res.sale;
-          syncedCount++;
-          totalSyncedMonto += parseFloat(sale.monto || 0);
-
-          // Actualizar estado local
-          dispatch({ type: 'UPDATE_SALE', payload: sale });
-        } catch (err) {
-          console.warn('[Mobile Sync] Error al sincronizar venta:', err.message);
-          remainingQueue.push(item);
+        const wasDisconnected = !prevConnected.current;
+        if (wasDisconnected) {
+          showToast('Conexión restablecida');
+          showToast('Sincronizando documentos pendientes en el servidor, favor espere...');
         }
-      }
 
-      await storage.set('offline_sales_queue', remainingQueue);
-      setIsSyncing(false);
+        let syncedCount = 0;
+        let totalSyncedMonto = 0;
+        const remainingQueue = [];
 
-      if (syncedCount > 0) {
-        // Alerta de éxito
-        Alert.alert(
-          'Sincronización Completada',
-          `${syncedCount} ventas sincronizadas con un total de NIO ${totalSyncedMonto.toFixed(2)} en el servidor.`
-        );
-        // Recargar datos
-        loadAllData();
-      }
-    };
+        for (const item of queue) {
+          try {
+            const res = await api.post('/sales.php', item.data);
+            const sale = res.sales ? res.sales[0] : res.sale;
+            syncedCount++;
+            totalSyncedMonto += parseFloat(sale.monto || 0);
+            dispatch({ type: 'UPDATE_SALE', payload: sale });
+          } catch (err) {
+            console.warn('[Mobile Sync] Error al sincronizar venta:', err.message);
+            remainingQueue.push(item);
+          }
+        }
 
-    runSync();
-  }, [isServerConnected]);
+        await storage.set('offline_sales_queue', remainingQueue);
+        setIsSyncing(false);
+
+        if (syncedCount > 0) {
+          showToast(`${syncedCount} ventas sincronizadas con un total de NIO ${totalSyncedMonto.toFixed(2)} en el servidor.`);
+          loadAllData();
+        }
+      };
+      runSync();
+    }
+    prevConnected.current = isServerConnected;
+  }, [isServerConnected, isSyncing, loadAllData]);
 
   const handleOfflineSale = async (saleData) => {
     const tempId = `temp_sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -203,8 +206,8 @@ export const AppProvider = ({ children }) => {
 
     // Alerta al usuario
     Alert.alert(
-      'Conexión caída',
-      'Conexión caída. Trabajando de forma local.'
+      'Conexión Caída',
+      'La comunicación con el servidor se ha interrumpido. El sistema continuará trabajando en modo local para que puedas seguir vendiendo. Las ventas pendientes se sincronizarán de forma automática al recuperar la conexión.'
     );
 
     return mockSale;

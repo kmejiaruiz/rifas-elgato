@@ -20,23 +20,17 @@ export const LoginScreen = () => {
   
   const [showConfig, setShowConfig] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [logoTaps, setLogoTaps] = useState(0);
-
   // Cargar URL inicial de API
   useEffect(() => {
     setApiUrlInput(getApiUrl());
   }, []);
 
-  const handleLogoTap = () => {
-    setLogoTaps(prev => {
-      const next = prev + 1;
-      if (next >= 5) {
-        setShowConfig(true);
-        Alert.alert('Modo Soporte', 'Ajustes de red desbloqueados.');
-        return 0;
-      }
-      return next;
-    });
+  const handleLogoLongPress = () => {
+    if (username.trim() === '*#9900#') {
+      setShowConfig(true);
+      setUsername(''); // Limpiar el código secreto
+      Alert.alert('Modo Soporte', 'Ajustes de red desbloqueados.');
+    }
   };
 
   const handleLoginSubmit = async () => {
@@ -74,7 +68,11 @@ export const LoginScreen = () => {
 
         {/* Logo y Encabezado */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleLogoTap} activeOpacity={1}>
+          <TouchableOpacity 
+            onLongPress={handleLogoLongPress} 
+            delayLongPress={3000} 
+            activeOpacity={1}
+          >
             <View style={styles.logoBadge}>
               <Ticket size={40} color="#fff" />
             </View>

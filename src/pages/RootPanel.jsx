@@ -10,7 +10,7 @@ import { api } from '../services/apiService';
 import {
   ShieldAlert, Power, Clock, CheckCircle2,
   AlertTriangle, RefreshCw, LogOut, Activity,
-  Eye, EyeOff, User, Lock, XCircle,
+  Eye, EyeOff, User, Lock, XCircle, Server, Wifi, Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -272,11 +272,47 @@ export const RootPanel = () => {
   const [localTime, setLocalTime] = useState(new Date());
   const [showCredModal, setShowCredModal] = useState(false);
 
+  // Estados añadidos
+  const [activeTab, setActiveTab] = useState('status'); // 'status' | 'server' | 'security'
+  const [bypassCode, setBypassCode] = useState('');
+
   // Reloj en tiempo real
   useEffect(() => {
     const iv = setInterval(() => setLocalTime(new Date()), 1000);
     return () => clearInterval(iv);
   }, []);
+
+  // Cargar configuraciones de bypassCode
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await api.get('/settings.php');
+        if (res && res.settings) {
+          setBypassCode(res.settings.bypassCode || '1005199611712301977');
+        }
+      } catch (err) {
+        console.error('Error al cargar ajustes en panel root:', err);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSaveBypassCode = async (e) => {
+    e.preventDefault();
+    if (!bypassCode.trim()) {
+      toast.error('Ingresa un código de recuperación válido.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.put('/settings.php', { bypassCode: bypassCode.trim() });
+      toast.success('Código de recuperación actualizado.');
+    } catch (err) {
+      toast.error('Error al guardar el código: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const doAction = async (action, extraData = {}) => {
     setLoading(true);
@@ -353,6 +389,19 @@ export const RootPanel = () => {
           from { opacity: 0; transform: scale(0.88) translateY(16px); }
           to   { opacity: 1; transform: scale(1)    translateY(0);     }
         }
+
+        /* Grid del Panel Root en PC */
+        .root-grid-container {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1.25rem;
+          width: 100%;
+        }
+        @media (min-width: 768px) {
+          .root-grid-container {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
       `}</style>
 
       <div style={{
@@ -417,212 +466,332 @@ export const RootPanel = () => {
           </div>
         </header>
 
+        {/* Selector de pestañas */}
+        <div style={{
+          display: 'flex',
+          gap: '0.25rem',
+          maxWidth: activeTab === 'security' ? 480 : 800,
+          margin: '1.5rem auto 0',
+          width: '100%',
+          padding: '0 1.25rem',
+          borderBottom: '1px solid var(--border)',
+          justifyContent: 'flex-start',
+          zIndex: 10,
+        }}>
+          {[
+            { id: 'status', label: 'Estado' },
+            { id: 'server', label: 'Servidor' },
+            { id: 'security', label: 'Seguridad' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom: `2.5px solid ${activeTab === t.id ? 'var(--primary)' : 'transparent'}`,
+                padding: '0.75rem 1.25rem',
+                color: activeTab === t.id ? 'var(--primary-light)' : 'var(--text-muted)',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                outline: 'none',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {/* Contenido */}
-        <main style={{ flex: 1, padding: '1.5rem 1.25rem', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        <main style={{ flex: 1, padding: '1.5rem 1.25rem', maxWidth: activeTab === 'security' ? 480 : 800, margin: '0 auto', width: '100%' }}>
 
-          {/* Estado actual */}
-          <section style={{
-            background: 'var(--bg-card)',
-            border: `1px solid ${sc.border}`,
-            borderRadius: '16px', padding: '1.5rem', marginBottom: '1.25rem',
-            boxShadow: `0 0 30px ${sc.bg}`, transition: 'all 0.4s ease',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Activity size={16} color="var(--text-muted)" />
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Estado de la Aplicación
-                </span>
-              </div>
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={refreshStatus}
-                title="Actualizar estado"
-                id="root-refresh-btn"
-                style={{ padding: '0.35rem' }}
-              >
-                <RefreshCw size={14} color="var(--text-muted)" />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: '50%',
-                background: sc.bg, border: `2px solid ${sc.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <span style={{ color: sc.color, display: 'flex' }}>{sc.icon}</span>
-              </div>
-              <div>
-                <p style={{ fontSize: '1.4rem', fontWeight: 900, color: sc.color, lineHeight: 1 }}>
-                  {sc.label}
-                </p>
-                {hasTimer && (
-                  <p style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '0.3rem', fontWeight: 600 }}>
-                    ⏱ Se desactivará: {formatDisableAt(disableAt)}
-                    {minutesRemaining !== null && ` (~${minutesRemaining} min)`}
-                  </p>
-                )}
-                {!hasTimer && !isBlocked && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                    Sin restricciones de tiempo
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Acciones */}
-          <section style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: '16px', padding: '1.5rem', marginBottom: '1.25rem',
-          }}>
-            <h3 style={{
-              fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)',
-              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1.25rem',
-            }}>
-              Control de Disponibilidad
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Desactivar ahora */}
-              {!isBlocked && (
-                <button
-                  id="root-disable-btn"
-                  className="btn"
-                  disabled={loading}
-                  onClick={() => doAction('disable')}
-                  style={{
-                    padding: '0.85rem 1rem',
-                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                    borderRadius: '12px', color: '#f87171', fontWeight: 700, fontSize: '0.9rem',
-                    display: 'flex', alignItems: 'center', gap: '0.6rem',
-                    cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
-                  }}
-                >
-                  <Power size={18} />
-                  Desactivar aplicación ahora
-                </button>
-              )}
-
-              {/* Reactivar — requiere credenciales root */}
-              {isBlocked && (
-                <button
-                  id="root-restore-btn"
-                  className="btn"
-                  disabled={loading}
-                  onClick={handleRestore}
-                  style={{
-                    padding: '0.85rem 1rem',
-                    background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)',
-                    borderRadius: '12px', color: '#34d399', fontWeight: 700, fontSize: '0.9rem',
-                    display: 'flex', alignItems: 'center', gap: '0.6rem',
-                    cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
-                  }}
-                >
-                  <CheckCircle2 size={18} />
-                  Reactivar aplicación
-                  <span style={{ fontSize: '0.68rem', opacity: 0.7, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <Lock size={11} /> requiere credenciales
-                  </span>
-                </button>
-              )}
-
-              {/* Cancelar timer */}
-              {hasTimer && (
-                <button
-                  id="root-cancel-timer-btn"
-                  className="btn"
-                  disabled={loading}
-                  onClick={handleRestore}
-                  style={{
-                    padding: '0.85rem 1rem',
-                    background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
-                    borderRadius: '12px', color: '#fbbf24', fontWeight: 700, fontSize: '0.9rem',
-                    display: 'flex', alignItems: 'center', gap: '0.6rem',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <RefreshCw size={18} />
-                  Cancelar temporizador
-                  <span style={{ fontSize: '0.68rem', opacity: 0.7, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <Lock size={11} /> requiere credenciales
-                  </span>
-                </button>
-              )}
-            </div>
-          </section>
-
-          {/* Programar desactivación */}
-          {!isBlocked && (
-            <section style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: '16px', padding: '1.5rem',
-            }}>
-              <h3 style={{
-                fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)',
-                textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem',
-              }}>
-                Programar Desactivación
-              </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
-                La app seguirá funcionando hasta que expire el tiempo. Al vencer, los usuarios verán
-                una notificación de error y no podrán operar.
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                  <label htmlFor="root-minutes-input" style={{ fontSize: '0.78rem' }}>
-                    Minutos antes de desactivar
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Clock size={14} color="var(--text-muted)" style={{
-                      position: 'absolute', left: '0.75rem', top: '50%',
-                      transform: 'translateY(-50%)', pointerEvents: 'none',
-                    }} />
-                    <input
-                      id="root-minutes-input"
-                      className="form-control"
-                      type="number"
-                      min="1"
-                      max="9999"
-                      value={minutes}
-                      onChange={(e) => setMinutes(e.target.value)}
-                      placeholder="ej: 30"
-                      style={{ paddingLeft: '2.25rem', fontSize: '0.9rem' }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSchedule()}
-                    />
+          {/* ─── PESTAÑA: ESTADO DE LA APP ───────────────────────── */}
+          {activeTab === 'status' && (
+            <div className="root-grid-container">
+              {/* Columna Izquierda: Estado actual */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <section style={{
+                  background: 'var(--bg-card)',
+                  border: `1px solid ${sc.border}`,
+                  borderRadius: '16px', padding: '1.5rem',
+                  boxShadow: `0 0 30px ${sc.bg}`, transition: 'all 0.4s ease',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Activity size={16} color="var(--text-muted)" />
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Estado de la Aplicación
+                      </span>
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-icon"
+                      onClick={refreshStatus}
+                      title="Actualizar estado"
+                      id="root-refresh-btn"
+                      style={{ padding: '0.35rem' }}
+                    >
+                      <RefreshCw size={14} color="var(--text-muted)" />
+                    </button>
                   </div>
-                </div>
-                <button
-                  id="root-schedule-btn"
-                  className="btn"
-                  disabled={loading || !minutes}
-                  onClick={handleSchedule}
-                  style={{
-                    padding: '0.75rem 1.1rem',
-                    background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)',
-                    borderRadius: '12px', color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem',
-                    whiteSpace: 'nowrap', cursor: (loading || !minutes) ? 'not-allowed' : 'pointer',
-                    flexShrink: 0, marginBottom: 0, alignSelf: 'flex-end',
-                  }}
-                >
-                  Programar
-                </button>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: 52, height: 52, borderRadius: '50%',
+                      background: sc.bg, border: `2px solid ${sc.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <span style={{ color: sc.color, display: 'flex' }}>{sc.icon}</span>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '1.4rem', fontWeight: 900, color: sc.color, lineHeight: 1 }}>
+                        {sc.label}
+                      </p>
+                      {hasTimer && (
+                        <p style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '0.3rem', fontWeight: 600 }}>
+                          ⏱ Se desactivará: {formatDisableAt(disableAt)}
+                          {minutesRemaining !== null && ` (~${minutesRemaining} min)`}
+                        </p>
+                      )}
+                      {!hasTimer && !isBlocked && (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                          Sin restricciones de tiempo
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Aviso cuando está desactivada */}
+                {isBlocked && (
+                  <div style={{
+                    background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+                    borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', color: '#f87171',
+                    lineHeight: 1.6, textAlign: 'center',
+                  }}>
+                    <AlertTriangle size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle' }} />
+                    Todos los usuarios ven el modal de error. La app se reactivará solo cuando
+                    presiones <strong>«Reactivar aplicación»</strong> y confirmes tus credenciales root.
+                  </div>
+                )}
               </div>
-            </section>
+
+              {/* Columna Derecha: Acciones */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <section style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: '16px', padding: '1.5rem',
+                }}>
+                  <h3 style={{
+                    fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1.25rem',
+                  }}>
+                    Control de Disponibilidad
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {!isBlocked && (
+                      <button
+                        id="root-disable-btn"
+                        className="btn"
+                        disabled={loading}
+                        onClick={() => doAction('disable')}
+                        style={{
+                          padding: '0.85rem 1rem',
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                          borderRadius: '12px', color: '#f87171', fontWeight: 700, fontSize: '0.9rem',
+                          display: 'flex', alignItems: 'center', gap: '0.6rem',
+                          cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+                        }}
+                      >
+                        <Power size={18} />
+                        Desactivar aplicación ahora
+                      </button>
+                    )}
+
+                    {isBlocked && (
+                      <button
+                        id="root-restore-btn"
+                        className="btn"
+                        disabled={loading}
+                        onClick={handleRestore}
+                        style={{
+                          padding: '0.85rem 1rem',
+                          background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)',
+                          borderRadius: '12px', color: '#34d399', fontWeight: 700, fontSize: '0.9rem',
+                          display: 'flex', alignItems: 'center', gap: '0.6rem',
+                          cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+                        }}
+                      >
+                        <CheckCircle2 size={18} />
+                        Reactivar aplicación
+                        <span style={{ fontSize: '0.68rem', opacity: 0.7, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <Lock size={11} /> requiere credenciales
+                        </span>
+                      </button>
+                    )}
+
+                    {hasTimer && (
+                      <button
+                        id="root-cancel-timer-btn"
+                        className="btn"
+                        disabled={loading}
+                        onClick={handleRestore}
+                        style={{
+                          padding: '0.85rem 1rem',
+                          background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
+                          borderRadius: '12px', color: '#fbbf24', fontWeight: 700, fontSize: '0.9rem',
+                          display: 'flex', alignItems: 'center', gap: '0.6rem',
+                          cursor: loading ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <RefreshCw size={18} />
+                        Cancelar temporizador
+                        <span style={{ fontSize: '0.68rem', opacity: 0.7, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <Lock size={11} /> requiere credenciales
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </section>
+
+                {!isBlocked && (
+                  <section style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: '16px', padding: '1.5rem',
+                  }}>
+                    <h3 style={{
+                      fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)',
+                      textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem',
+                    }}>
+                      Programar Desactivación
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+                      La app seguirá funcionando hasta que expire el tiempo. Al vencer, los usuarios verán una notificación de error y no podrán operar.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                        <label htmlFor="root-minutes-input" style={{ fontSize: '0.78rem' }}>
+                          Minutos antes de desactivar
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <Clock size={14} color="var(--text-muted)" style={{
+                            position: 'absolute', left: '0.75rem', top: '50%',
+                            transform: 'translateY(-50%)', pointerEvents: 'none',
+                          }} />
+                          <input
+                            id="root-minutes-input"
+                            className="form-control"
+                            type="number"
+                            min="1"
+                            max="9999"
+                            value={minutes}
+                            onChange={(e) => setMinutes(e.target.value)}
+                            placeholder="ej: 30"
+                            style={{ paddingLeft: '2.25rem', fontSize: '0.9rem' }}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSchedule()}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        id="root-schedule-btn"
+                        className="btn"
+                        disabled={loading || !minutes}
+                        onClick={handleSchedule}
+                        style={{
+                          padding: '0.75rem 1.1rem',
+                          background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)',
+                          borderRadius: '12px', color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem',
+                          whiteSpace: 'nowrap', cursor: (loading || !minutes) ? 'not-allowed' : 'pointer',
+                          flexShrink: 0, marginBottom: 0, alignSelf: 'flex-end',
+                        }}
+                      >
+                        Programar
+                      </button>
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
           )}
 
-          {/* Aviso cuando está desactivada */}
-          {isBlocked && (
-            <div style={{
-              background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
-              borderRadius: '12px', padding: '1rem', fontSize: '0.82rem', color: '#f87171',
-              lineHeight: 1.6, textAlign: 'center',
-            }}>
-              <AlertTriangle size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle' }} />
-              Todos los usuarios ven el modal de error. La app se reactivará solo cuando
-              presiones <strong>«Reactivar aplicación»</strong> y confirmes tus credenciales root.
+          {/* ─── PESTAÑA: CONFIGURACIÓN DEL SERVIDOR API ─────────── */}
+          {activeTab === 'server' && (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1.5rem', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                <Server size={18} color="var(--primary-light)" />
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f1f5f9', textTransform: 'uppercase', margin: 0 }}>
+                  Servidor de API Detectado
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                En la plataforma web, el backend y el frontend se ejecutan bajo el mismo dominio de forma automática e integrada.
+              </p>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Origen de la API</label>
+                <input
+                  className="form-control"
+                  type="text"
+                  value={window.location.origin + '/api'}
+                  readOnly
+                  style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--primary-light)', cursor: 'default', fontWeight: 700 }}
+                />
+              </div>
             </div>
+          )}
+
+          {/* ─── PESTAÑA: CÓDIGO DE RECUPERACIÓN ─────────────────── */}
+          {activeTab === 'security' && (
+            <form onSubmit={handleSaveBypassCode} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1.5rem', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                <Lock size={18} color="var(--primary-light)" />
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f1f5f9', textTransform: 'uppercase', margin: 0 }}>
+                  Código de Recuperación
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                Código secreto utilizado para desbloquear la configuración de red en la pantalla de inicio de sesión de la aplicación móvil.
+              </p>
+
+              <div className="form-group">
+                <label htmlFor="root-bypass-code">Código Secreto</label>
+                <input
+                  id="root-bypass-code"
+                  className="form-control"
+                  type="text"
+                  value={bypassCode}
+                  onChange={(e) => setBypassCode(e.target.value)}
+                  placeholder="1005199611712301977"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  background: 'var(--primary)',
+                  border: '1px solid var(--primary-light)',
+                  color: '#fff',
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  marginTop: '0.5rem',
+                  cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <Save size={16} />
+                {loading ? 'Guardando...' : 'Guardar Código'}
+              </button>
+            </form>
           )}
         </main>
       </div>

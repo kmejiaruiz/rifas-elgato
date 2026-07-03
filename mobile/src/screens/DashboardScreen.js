@@ -21,7 +21,7 @@ const formatCurrency = (amount, currency = 'NIO') =>
 
 export const DashboardScreen = ({ onNavigate }) => {
   const { user, logout } = useAuth();
-  const { dailySummary, settings, loading, loadAllData, lotteries, sales } = useApp();
+  const { dailySummary, settings, loading, loadAllData, lotteries, sales, isServerConnected } = useApp();
 
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
   const currency = settings.currency || 'NIO';

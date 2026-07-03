@@ -255,11 +255,11 @@ const AppShell = () => {
               </div>
               
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f1f5f9', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                Conexión Caída
+                Conexión perdida
               </h3>
               
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.5rem', textAlign: 'center' }}>
-                La comunicación con el servidor de sorteos se ha interrumpido. No te preocupes: puedes seguir vendiendo boletos sin problemas. El sistema los guardará localmente y se sincronizarán al servidor de forma automática cuando se restablezca la conexión.
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.5rem', textAlign: 'center' }}>
+                Sin poder conectarse al servidor, trabajando de forma local.
               </p>
               
               <button

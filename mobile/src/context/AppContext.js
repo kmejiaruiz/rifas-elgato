@@ -206,8 +206,8 @@ export const AppProvider = ({ children }) => {
 
     // Alerta al usuario
     Alert.alert(
-      'Conexión Caída',
-      'La comunicación con el servidor se ha interrumpido. El sistema continuará trabajando en modo local para que puedas seguir vendiendo. Las ventas pendientes se sincronizarán de forma automática al recuperar la conexión.'
+      'Conexión perdida',
+      'Sin poder conectarse al servidor, trabajando de forma local.'
     );
 
     return mockSale;

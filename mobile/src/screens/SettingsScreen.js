@@ -29,6 +29,7 @@ export const SettingsScreen = ({ onNavigate }) => {
     connectPrinter, disconnectPrinter, printTestPage
   } = useApp();
 
+  const isRoot = user?.role === 'root';
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
 
   const [businessName, setBusinessName]         = useState(settings.businessName || '');
@@ -46,11 +47,71 @@ export const SettingsScreen = ({ onNavigate }) => {
   const [localPreviewUri, setLocalPreviewUri]   = useState(null);
   const [uploadingImage, setUploadingImage]     = useState(false);
 
-  // API URL
-  const [apiUrl, setApiUrlState]   = useState(getApiUrl());
+  // Utilidad para parsear URL
+  const parseApiUrlString = (urlStr) => {
+    let protocol = 'https://';
+    let host = '';
+    let port = '';
+    let path = '/api';
+
+    if (urlStr) {
+      let temp = urlStr.trim();
+      if (temp.startsWith('http://')) {
+        protocol = 'http://';
+        temp = temp.replace('http://', '');
+      } else if (temp.startsWith('https://')) {
+        protocol = 'https://';
+        temp = temp.replace('https://', '');
+      }
+
+      const slashIndex = temp.indexOf('/');
+      let hostPort = temp;
+      if (slashIndex !== -1) {
+        hostPort = temp.substring(0, slashIndex);
+        path = temp.substring(slashIndex);
+      } else {
+        path = '';
+      }
+
+      if (hostPort.includes(':')) {
+        const parts = hostPort.split(':');
+        host = parts[0];
+        port = parts[1];
+      } else {
+        host = hostPort;
+      }
+    }
+
+    return { protocol, host, port, path };
+  };
+
+  const parsed = parseApiUrlString(getApiUrl());
+  const [apiProtocol, setApiProtocol] = useState(parsed.protocol);
+  const [apiHost, setApiHost] = useState(parsed.host);
+  const [apiPort, setApiPort] = useState(parsed.port);
+  const [apiPath, setApiPath] = useState(parsed.path || '/api');
+
   const [apiSaving, setApiSaving]  = useState(false);
   const [apiStatus, setApiStatus]  = useState(null); // null | 'ok' | 'error'
   const [apiChecking, setApiChecking] = useState(false);
+
+  const getBuiltApiUrl = () => {
+    const host = apiHost.trim();
+    const port = apiPort.trim();
+    const path = apiPath.trim();
+
+    if (!host) return '';
+
+    let url = `${apiProtocol}${host}`;
+    if (port) {
+      url += `:${port}`;
+    }
+    if (path) {
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      url += cleanPath;
+    }
+    return url;
+  };
 
   // Alertas personalizadas
   const [alertConfig, setAlertConfig] = useState({
@@ -189,14 +250,14 @@ export const SettingsScreen = ({ onNavigate }) => {
 
   // ─── Guardar URL del servidor ──────────────────────────────
   const handleSaveApiUrl = async () => {
-    if (!apiUrl.trim()) {
-      Alert.alert('URL inválida', 'Ingrese una URL del servidor válida.');
+    const fullUrl = getBuiltApiUrl();
+    if (!fullUrl) {
+      Alert.alert('Servidor requerido', 'Ingrese la IP o dominio del servidor.');
       return;
     }
     setApiSaving(true);
     try {
-      await setApiUrl(apiUrl.trim());
-      setApiUrlState(getApiUrl()); // Actualizar con la URL normalizada
+      await setApiUrl(fullUrl);
       Alert.alert(
         'Servidor Actualizado',
         `URL guardada: ${getApiUrl()}\n\nSe sincronizarán los datos automáticamente.`,
@@ -218,10 +279,15 @@ export const SettingsScreen = ({ onNavigate }) => {
 
   // ─── Verificar conexión con el servidor ───────────────────
   const handleCheckApi = async () => {
+    const fullUrl = getBuiltApiUrl();
+    if (!fullUrl) {
+      Alert.alert('Servidor requerido', 'Ingrese la IP o dominio del servidor.');
+      return;
+    }
     setApiChecking(true);
     setApiStatus(null);
     try {
-      await setApiUrl(apiUrl.trim());
+      await setApiUrl(fullUrl);
       await api.get('/settings.php');
       setApiStatus('ok');
     } catch {
@@ -353,102 +419,150 @@ export const SettingsScreen = ({ onNavigate }) => {
           </TouchableOpacity>
         </GlassCard>
 
-        {/* ─── URL del Servidor ────────────────────────────────── */}
-        <GlassCard style={styles.card}>
-          <View style={styles.sectionHeaderRow}>
-            <Server size={15} color={COLORS.primaryLight} />
-            <Text style={styles.sectionTitleInline}>Servidor de API</Text>
-          </View>
-          <Text style={styles.sectionDesc}>
-            Dirección IP o dominio de tu servidor XAMPP. Todos los datos (ventas, configuraciones, juegos) se cargan desde aquí.
-          </Text>
-
-          <FormInput
-            label="URL del Servidor"
-            value={apiUrl}
-            onChangeText={setApiUrlState}
-            placeholder="http://192.168.1.100/app/api"
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-
-          {apiStatus === 'ok' && (
-            <View style={styles.apiStatusOk}>
-              <CheckCircle size={13} color={COLORS.successLight} />
-              <Text style={styles.apiStatusOkText}>Conexión exitosa con el servidor ✓</Text>
+        {/* ─── URL del Servidor (Solo visible a Root) ─────────── */}
+        {isRoot && (
+          <GlassCard style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <Server size={15} color={COLORS.primaryLight} />
+              <Text style={styles.sectionTitleInline}>Servidor de API</Text>
             </View>
-          )}
-          {apiStatus === 'error' && (
-            <View style={styles.apiStatusError}>
-              <Wifi size={13} color={COLORS.dangerLight} />
-              <Text style={styles.apiStatusErrorText}>No se pudo conectar. Verifique la IP y que XAMPP esté activo.</Text>
+            <Text style={styles.sectionDesc}>
+              Dirección IP o dominio de tu servidor XAMPP/Vercel. Todos los datos se cargan desde aquí.
+            </Text>
+
+            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 }}>Protocolo</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {['http://', 'https://'].map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={{
+                    flex: 1,
+                    height: 38,
+                    borderRadius: 8,
+                    backgroundColor: apiProtocol === p ? COLORS.primary : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: apiProtocol === p ? COLORS.primaryLight : 'rgba(255,255,255,0.08)',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onPress={() => setApiProtocol(p)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{p}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
 
-          <View style={styles.apiActions}>
-            <TouchableOpacity
-              style={[styles.testBtn, apiChecking && { opacity: 0.6 }]}
-              onPress={handleCheckApi}
-              disabled={apiChecking}
-              activeOpacity={0.8}
-            >
-              {apiChecking
-                ? <ActivityIndicator size="small" color={COLORS.primaryLight} />
-                : <View style={styles.btnInner}><Wifi size={13} color={COLORS.primaryLight} /><Text style={styles.testBtnText}>Probar</Text></View>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveApiBtn, apiSaving && { opacity: 0.6 }]}
-              onPress={handleSaveApiUrl}
-              disabled={apiSaving}
-              activeOpacity={0.8}
-            >
-              {apiSaving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <View style={styles.btnInner}><Save size={13} color="#fff" /><Text style={styles.saveApiBtnText}>Guardar y Conectar</Text></View>}
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
+            <FormInput
+              label="Servidor (IP o Dominio)"
+              value={apiHost}
+              onChangeText={setApiHost}
+              placeholder="192.168.1.103 o tu-app.vercel.app"
+              autoCapitalize="none"
+            />
 
-        {/* ─── Identidad Comercial ─────────────────────────────── */}
-        <GlassCard style={styles.card}>
-          <Text style={styles.sectionTitle}>Identidad Comercial</Text>
-          <Text style={styles.sectionDesc}>
-            Estos valores se guardan en el servidor y son compartidos entre la app web y la app móvil.
-          </Text>
+            <FormInput
+              label="Puerto (Opcional)"
+              value={apiPort}
+              onChangeText={setApiPort}
+              placeholder="3000"
+              keyboardType="numeric"
+            />
 
-          <FormInput
-            label="Nombre Comercial"
-            value={businessName}
-            onChangeText={setBusinessName}
-            placeholder="Amaranto"
-          />
+            <FormInput
+              label="Ruta Base (Path)"
+              value={apiPath}
+              onChangeText={setApiPath}
+              placeholder="/api"
+              autoCapitalize="none"
+            />
 
-          <FormInput
-            label="Símbolo de Moneda"
-            value={currency}
-            onChangeText={setCurrency}
-            placeholder="NIO"
-          />
-        </GlassCard>
+            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4, marginBottom: 12 }}>
+              URL Generada: <Text style={{ color: COLORS.primaryLight, fontWeight: '700' }}>{getBuiltApiUrl() || 'Incompleta'}</Text>
+            </Text>
 
-        {/* ─── Parámetros del Sorteo ───────────────────────────── */}
-        <GlassCard style={styles.card}>
-          <View style={styles.sectionHeaderRow}>
-            <Clock size={15} color={COLORS.primaryLight} />
-            <Text style={styles.sectionTitleInline}>Parámetros del Sorteo</Text>
-          </View>
+            {apiStatus === 'ok' && (
+              <View style={styles.apiStatusOk}>
+                <CheckCircle size={13} color={COLORS.successLight} />
+                <Text style={styles.apiStatusOkText}>Conexión exitosa con el servidor ✓</Text>
+              </View>
+            )}
+            {apiStatus === 'error' && (
+              <View style={styles.apiStatusError}>
+                <Wifi size={13} color={COLORS.dangerLight} />
+                <Text style={styles.apiStatusErrorText}>No se pudo conectar al servidor.</Text>
+              </View>
+            )}
 
-          <FormInput
-            label="Minutos de cierre antes del sorteo"
-            value={drawCloseMinutes}
-            onChangeText={setDrawCloseMinutes}
-            placeholder="10"
-            keyboardType="numeric"
-          />
-          <Text style={styles.fieldHint}>
-            Se bloquea la venta {drawCloseMinutes} minutos antes de la hora del sorteo.
-          </Text>
-        </GlassCard>
+            <View style={styles.apiActions}>
+              <TouchableOpacity
+                style={[styles.testBtn, apiChecking && { opacity: 0.6 }]}
+                onPress={handleCheckApi}
+                disabled={apiChecking}
+                activeOpacity={0.8}
+              >
+                {apiChecking
+                  ? <ActivityIndicator size="small" color={COLORS.primaryLight} />
+                  : <View style={styles.btnInner}><Wifi size={13} color={COLORS.primaryLight} /><Text style={styles.testBtnText}>Probar</Text></View>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveApiBtn, apiSaving && { opacity: 0.6 }]}
+                onPress={handleSaveApiUrl}
+                disabled={apiSaving}
+                activeOpacity={0.8}
+              >
+                {apiSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <View style={styles.btnInner}><Save size={13} color="#fff" /><Text style={styles.saveApiBtnText}>Guardar y Conectar</Text></View>}
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* ─── Identidad Comercial (Sólo visible a Admin/Root) ── */}
+        {isAdmin && (
+          <GlassCard style={styles.card}>
+            <Text style={styles.sectionTitle}>Identidad Comercial</Text>
+            <Text style={styles.sectionDesc}>
+              Estos valores se guardan en el servidor y son compartidos entre la app web y la app móvil.
+            </Text>
+
+            <FormInput
+              label="Nombre Comercial"
+              value={businessName}
+              onChangeText={setBusinessName}
+              placeholder="Amaranto"
+            />
+
+            <FormInput
+              label="Símbolo de Moneda"
+              value={currency}
+              onChangeText={setCurrency}
+              placeholder="NIO"
+            />
+          </GlassCard>
+        )}
+
+        {/* ─── Parámetros del Sorteo (Sólo visible a Admin/Root) ─ */}
+        {isAdmin && (
+          <GlassCard style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <Clock size={15} color={COLORS.primaryLight} />
+              <Text style={styles.sectionTitleInline}>Parámetros del Sorteo</Text>
+            </View>
+
+            <FormInput
+              label="Minutos de cierre antes del sorteo"
+              value={drawCloseMinutes}
+              onChangeText={setDrawCloseMinutes}
+              placeholder="10"
+              keyboardType="numeric"
+            />
+            <Text style={styles.fieldHint}>
+              Se bloquea la venta {drawCloseMinutes} minutos antes de la hora del sorteo.
+            </Text>
+          </GlassCard>
+        )}
 
         {/* ─── Carrusel de Imágenes (Admin) ────────────────────────── */}
         {isAdmin && (
@@ -628,13 +742,15 @@ export const SettingsScreen = ({ onNavigate }) => {
         </GlassCard>
 
         {/* ─── Guardar ─────────────────────────────────────────── */}
-        <CustomButton
-          title={loading ? 'Guardando...' : 'Guardar Ajustes'}
-          onPress={handleSave}
-          loading={loading}
-          icon={Save}
-          style={styles.saveBtn}
-        />
+        {isAdmin && (
+          <CustomButton
+            title={loading ? 'Guardando...' : 'Guardar Ajustes'}
+            onPress={handleSave}
+            loading={loading}
+            icon={Save}
+            style={styles.saveBtn}
+          />
+        )}
       </ScrollView>
     </View>
   );

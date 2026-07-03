@@ -156,9 +156,24 @@ export const DashboardScreen = ({ onNavigate }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.businessName}>{businessName}</Text>
             <Text style={styles.username} numberOfLines={1}>{user?.name || 'Vendedor'}</Text>
-            <Text style={styles.userRole}>
-              {user?.role === 'admin' ? 'Administrador' : user?.role === 'root' ? 'Root' : 'Vendedor'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={styles.userRole}>
+                {user?.role === 'admin' ? 'Administrador' : user?.role === 'root' ? 'Root' : 'Vendedor'}
+              </Text>
+              <View style={{ 
+                width: 6, 
+                height: 6, 
+                borderRadius: 3, 
+                backgroundColor: isServerConnected ? '#10b981' : '#ef4444' 
+              }} />
+              <Text style={{ 
+                fontSize: 10, 
+                fontWeight: '600', 
+                color: isServerConnected ? '#10b981' : '#ef4444' 
+              }}>
+                {isServerConnected ? 'Conectado' : 'Local'}
+              </Text>
+            </View>
           </View>
         </View>
 

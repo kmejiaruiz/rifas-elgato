@@ -220,10 +220,30 @@ async function initSchema(dbPool) {
         prizes_total DECIMAL(10,2) NOT NULL,
         commission_amount DECIMAL(10,2) NOT NULL,
         net_salary DECIMAL(10,2) NOT NULL,
+        status ENUM('pending', 'confirmed') NOT NULL DEFAULT 'pending',
+        created_by_name VARCHAR(100) NOT NULL,
         paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at TIMESTAMP NULL,
         FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // Migración automática para BDs existentes
+    try {
+      const [cols] = await dbPool.query("SHOW COLUMNS FROM salary_payments");
+      const colNames = cols.map(c => c.Field);
+      if (!colNames.includes('status')) {
+        await dbPool.query("ALTER TABLE salary_payments ADD COLUMN status ENUM('pending', 'confirmed') NOT NULL DEFAULT 'pending'");
+      }
+      if (!colNames.includes('created_by_name')) {
+        await dbPool.query("ALTER TABLE salary_payments ADD COLUMN created_by_name VARCHAR(100) NOT NULL DEFAULT 'Administrador'");
+      }
+      if (!colNames.includes('confirmed_at')) {
+        await dbPool.query("ALTER TABLE salary_payments ADD COLUMN confirmed_at TIMESTAMP NULL");
+      }
+    } catch (err) {
+      console.error('Error al migrar salary_payments:', err.message);
+    }
 
     // Insertar usuarios por defecto si la tabla está vacía
     const [userRows] = await dbPool.query('SELECT COUNT(*) AS cnt FROM users');

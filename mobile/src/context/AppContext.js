@@ -6,6 +6,7 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback, u
 import { Alert, AppState } from 'react-native';
 import { api } from '../services/apiService';
 import { storage } from '../services/storageService';
+import { useAuth } from './AuthContext';
 import { LOTTERY_LIST, setDynamicLotteries } from '../data/lotteryTypes';
 import {
   connectPrinter as svcConnect,
@@ -78,6 +79,135 @@ const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  const { user } = useAuth();
+  const [isServerConnected, setIsServerConnected] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Pinger para verificar el estado de conexión
+  useEffect(() => {
+    if (!user) return;
+
+    let timer = null;
+
+    const ping = async () => {
+      try {
+        await api.get('/settings.php');
+        if (!isServerConnected) {
+          setIsServerConnected(true);
+        }
+      } catch (err) {
+        const isNetError = err.message && (
+          err.message.includes('No se pudo establecer conexión') ||
+          err.message.includes('Network') ||
+          err.message.includes('network') ||
+          err.message.includes('timeout')
+        );
+        if (isNetError) {
+          setIsServerConnected(false);
+        }
+      }
+    };
+
+    timer = setInterval(ping, 10000); // Ping cada 10s
+    return () => clearInterval(timer);
+  }, [user, isServerConnected]);
+
+  // Sync Engine: detecta el cambio de isServerConnected de false -> true
+  useEffect(() => {
+    if (!isServerConnected || isSyncing) return;
+
+    const runSync = async () => {
+      const queue = await storage.get('offline_sales_queue') || [];
+      if (queue.length === 0) return;
+
+      setIsSyncing(true);
+
+      // Alerta de inicio de sincronización
+      Alert.alert(
+        'Conexión restablecida',
+        'Sincronizando documentos pendientes en el servidor, favor espere...'
+      );
+
+      let syncedCount = 0;
+      let totalSyncedMonto = 0;
+      const remainingQueue = [];
+
+      for (const item of queue) {
+        try {
+          const res = await api.post('/sales.php', item.data);
+          const sale = res.sales ? res.sales[0] : res.sale;
+          syncedCount++;
+          totalSyncedMonto += parseFloat(sale.monto || 0);
+
+          // Actualizar estado local
+          dispatch({ type: 'UPDATE_SALE', payload: sale });
+        } catch (err) {
+          console.warn('[Mobile Sync] Error al sincronizar venta:', err.message);
+          remainingQueue.push(item);
+        }
+      }
+
+      await storage.set('offline_sales_queue', remainingQueue);
+      setIsSyncing(false);
+
+      if (syncedCount > 0) {
+        // Alerta de éxito
+        Alert.alert(
+          'Sincronización Completada',
+          `${syncedCount} ventas sincronizadas con un total de NIO ${totalSyncedMonto.toFixed(2)} en el servidor.`
+        );
+        // Recargar datos
+        loadAllData();
+      }
+    };
+
+    runSync();
+  }, [isServerConnected]);
+
+  const handleOfflineSale = async (saleData) => {
+    const tempId = `temp_sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const totalMonto = saleData.jugadas.reduce((sum, j) => sum + parseFloat(j.monto || 0), 0);
+
+    const mockSale = {
+      id: tempId,
+      lotteryId: saleData.lotteryId,
+      comprador: saleData.comprador || '',
+      monto: totalMonto,
+      sellerId: user?.id || '0',
+      sellerName: user?.name || 'Vendedor Offline',
+      horaSorteo: saleData.horaSorteo || '12:00',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      prizePaid: 0,
+      isOffline: true,
+      lines: saleData.jugadas.map((j, idx) => ({
+        id: `temp_line_${Date.now()}_${idx}`,
+        saleId: tempId,
+        lotteryId: saleData.lotteryId,
+        numero: saleData.lotteryId === 'fechea' ? (j.fecha || '') : (j.numero || ''),
+        monto: parseFloat(j.monto || 0),
+        fecha: j.fecha || new Date().toISOString().split('T')[0],
+        status: 'active'
+      }))
+    };
+
+    // Agregar localmente a ventas en memoria
+    dispatch({ type: 'ADD_SALE', payload: mockSale });
+
+    // Guardar en cola local
+    const queue = await storage.get('offline_sales_queue') || [];
+    queue.push({ id: tempId, data: saleData });
+    await storage.set('offline_sales_queue', queue);
+
+    // Alerta al usuario
+    Alert.alert(
+      'Conexión caída',
+      'Conexión caída. Trabajando de forma local.'
+    );
+
+    return mockSale;
+  };
 
   // ─── Refresco del resumen diario ──────────────────────────
   const refreshSummary = useCallback(async () => {
@@ -164,8 +294,13 @@ export const AppProvider = ({ children }) => {
 
   // ─── Agregar venta ────────────────────────────────────────
   const addSale = useCallback(async (saleData) => {
+    if (!isServerConnected) {
+      return await handleOfflineSale(saleData);
+    }
+
     try {
       const res = await api.post('/sales.php', saleData);
+      setIsServerConnected(true);
       if (res.sales && Array.isArray(res.sales)) {
         res.sales.forEach(s => {
           dispatch({ type: 'ADD_SALE', payload: s });
@@ -179,10 +314,21 @@ export const AppProvider = ({ children }) => {
         return sale;
       }
     } catch (err) {
-      Alert.alert('Error de Venta', err.message);
-      throw err;
+      const isNetError = err.message && (
+        err.message.includes('No se pudo establecer conexión') ||
+        err.message.includes('Network') ||
+        err.message.includes('network') ||
+        err.message.includes('timeout')
+      );
+      if (isNetError) {
+        setIsServerConnected(false);
+        return await handleOfflineSale(saleData);
+      } else {
+        Alert.alert('Error de Venta', err.message);
+        throw err;
+      }
     }
-  }, [refreshSummary]);
+  }, [refreshSummary, isServerConnected, user]);
 
   // ─── Anular venta ─────────────────────────────────────────
   const annulSale = useCallback(async (id, adminCreds = null) => {
@@ -296,6 +442,7 @@ export const AppProvider = ({ children }) => {
         disconnectPrinter,
         printTicket,
         printTestPage,
+        isServerConnected,
       }}
     >
       {children}

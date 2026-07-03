@@ -489,13 +489,14 @@ export const RootPanel = () => {
               style={{
                 background: 'transparent',
                 border: 'none',
-                borderBottom: `2.5px solid ${activeTab === t.id ? 'var(--primary)' : 'transparent'}`,
+                borderBottom: '2.5px solid transparent',
+                borderBottomColor: activeTab === t.id ? 'var(--accent)' : 'transparent',
                 padding: '0.75rem 1.25rem',
-                color: activeTab === t.id ? 'var(--primary-light)' : 'var(--text-muted)',
+                color: activeTab === t.id ? 'var(--accent-light)' : 'var(--text-secondary)',
                 fontWeight: 800,
                 fontSize: '0.85rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.3s ease',
                 outline: 'none',
               }}
             >

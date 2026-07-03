@@ -26,7 +26,7 @@ export const LoginScreen = () => {
   }, []);
 
   const handleLogoLongPress = () => {
-    if (username.trim() === '*#9900#') {
+    if (username.trim() === '1005199611712301977') {
       setShowConfig(true);
       setUsername(''); // Limpiar el código secreto
       Alert.alert('Modo Soporte', 'Ajustes de red desbloqueados.');

@@ -28,8 +28,14 @@ const request = async (method, path, body = null) => {
 
   let res;
   try {
-    const base = import.meta.env.DEV ? '/api' : `${import.meta.env.BASE_URL || '/'}api`;
-    const url = `${base}${path}`.replace(/\/+/g, '/');
+    const base = import.meta.env.DEV ? '/api' : 'https://rifas-elgato.vercel.app/api';
+    let url;
+    if (base.startsWith('http')) {
+      const urlObj = new URL(base);
+      url = `${urlObj.origin}${`${urlObj.pathname}/${path}`.replace(/\/+/g, '/')}`;
+    } else {
+      url = `${base}${path}`.replace(/\/+/g, '/');
+    }
     res = await fetch(url, opts);
   } catch {
     throw new Error('Sin conexión con el servidor. Verifica que el backend esté activo.');

@@ -72,6 +72,7 @@ const parseSettings = (raw = {}) => ({
   appDisableAt:     raw.appDisableAt     ?? 'never',
   isBlocked:        raw.isBlocked === true || raw.isBlocked === 'true',
   carousel_images:  raw.carousel_images  || '[]',
+  bypassCode:       raw.bypassCode       || '1005199611712301977',
 });
 
 // ─── Contexto ─────────────────────────────────────────────────

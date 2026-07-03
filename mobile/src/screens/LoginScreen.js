@@ -10,6 +10,7 @@ import { COLORS, RADIUS } from '../styles/theme';
 import { FormInput } from '../components/FormInput';
 import { CustomButton } from '../components/CustomButton';
 import { GlassCard } from '../components/GlassCard';
+import { storage } from '../services/storageService';
 
 export const LoginScreen = () => {
   const { login } = useAuth();
@@ -20,13 +21,26 @@ export const LoginScreen = () => {
   
   const [showConfig, setShowConfig] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Cargar URL inicial de API
+  const [cachedBypassCode, setCachedBypassCode] = useState('1005199611712301977');
+
+  // Cargar URL inicial de API y bypassCode
   useEffect(() => {
-    setApiUrlInput(getApiUrl());
+    const init = async () => {
+      setApiUrlInput(getApiUrl());
+      try {
+        const cached = await storage.get('cached_settings');
+        if (cached && cached.bypassCode) {
+          setCachedBypassCode(cached.bypassCode);
+        }
+      } catch (err) {
+        // no-op
+      }
+    };
+    init();
   }, []);
 
   const handleLogoLongPress = () => {
-    if (username.trim() === '1005199611712301977') {
+    if (username.trim() === cachedBypassCode) {
       setShowConfig(true);
       setUsername(''); // Limpiar el código secreto
       Alert.alert('Modo Soporte', 'Ajustes de red desbloqueados.');

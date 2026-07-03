@@ -165,6 +165,7 @@ export const RootPanelScreen = ({ onLogout }) => {
   const [showCredModal, setShowCredModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'restore' | 'cancelTimer'
   const [localTime, setLocalTime] = useState(new Date());
+  const [bypassCode, setBypassCodeState] = useState('');
 
   // --- API URL States & Helpers ---
   const parseApiUrlString = (urlStr) => {
@@ -291,12 +292,34 @@ export const RootPanelScreen = ({ onLogout }) => {
     try {
       const res = await api.get('/root.php');
       setAppControl(res.appControl || { status: 'active', disableAt: 'never', isBlocked: false });
+
+      // Cargar configuraciones de bypassCode
+      const settingsRes = await api.get('/settings.php');
+      if (settingsRes && settingsRes.settings) {
+        setBypassCodeState(settingsRes.settings.bypassCode || '1005199611712301977');
+      }
     } catch (err) {
-      Alert.alert('Error', 'No se pudo cargar el estado de la aplicación: ' + err.message);
+      // Ignorar fallas silenciosas en arranque local
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleSaveBypassCode = async () => {
+    if (!bypassCode.trim()) {
+      Alert.alert('Código requerido', 'Ingrese un código de recuperación válido.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.put('/settings.php', { bypassCode: bypassCode.trim() });
+      Alert.alert('Éxito', 'Código de recuperación actualizado correctamente.');
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo guardar el código: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadStatus();
@@ -526,6 +549,37 @@ export const RootPanelScreen = ({ onLogout }) => {
             </Text>
           </View>
         )}
+
+        {/* ─── Código de Recuperación (Bypass) ───────────────── */}
+        <GlassCard style={styles.card}>
+          <View style={styles.sectionHeaderRow}>
+            <Lock size={15} color={COLORS.primaryLight} />
+            <Text style={styles.sectionTitleInline}>Código de Recuperación</Text>
+          </View>
+          <Text style={styles.sectionDesc}>
+            Código de texto utilizado para desbloquear la configuración de red en la pantalla de inicio de sesión.
+          </Text>
+
+          <FormInput
+            label="Código Secreto"
+            value={bypassCode}
+            onChangeText={setBypassCodeState}
+            placeholder="1005199611712301977"
+            autoCapitalize="none"
+          />
+
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: COLORS.primary, borderColor: COLORS.primaryLight, marginTop: 8 }]}
+            onPress={handleSaveBypassCode}
+            disabled={actionLoading}
+            activeOpacity={0.8}
+          >
+            <View style={styles.btnInner}>
+              <Save size={14} color="#fff" />
+              <Text style={[styles.actionBtnText, { color: '#fff' }]}>Guardar Código</Text>
+            </View>
+          </TouchableOpacity>
+        </GlassCard>
 
         {/* ─── URL del Servidor ────────────────────────────────── */}
         <GlassCard style={styles.card}>

@@ -37,7 +37,7 @@ router.put('/', requireAdmin, async (req, res) => {
   const db = await getDB();
 
   // Lista blanca de llaves permitidas para evitar contaminación
-  const allowedKeys = ['businessName', 'currency', 'autoprint', 'drawCloseMinutes', 'carousel_images'];
+  const allowedKeys = ['businessName', 'currency', 'autoprint', 'drawCloseMinutes', 'carousel_images', 'bypassCode'];
 
   try {
     for (const [key, value] of Object.entries(b)) {

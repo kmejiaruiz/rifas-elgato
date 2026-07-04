@@ -26,4 +26,8 @@ dist-ssr
 # ─── Entorno y credenciales ───────────────────────────────────
 # NUNCA subir a Git
 .env
+.env.*
+**/.env
+**/.env.*
 .env.php
+**/.env.php

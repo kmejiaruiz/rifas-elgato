@@ -254,6 +254,80 @@ async function initSchema(dbPool) {
       console.error('Error al migrar salary_payments:', err.message);
     }
 
+    // ─── Migración: columnas faltantes en 'sales' ──────────────
+    try {
+      const [salesCols] = await dbPool.query('SHOW COLUMNS FROM sales');
+      const salesColNames = salesCols.map(c => c.Field);
+      if (!salesColNames.includes('hora_sorteo')) {
+        await dbPool.query("ALTER TABLE sales ADD COLUMN hora_sorteo VARCHAR(20) NULL AFTER lottery_id");
+        console.log('[DB Migration] sales.hora_sorteo añadida.');
+      }
+      if (!salesColNames.includes('cancelled_by_name')) {
+        await dbPool.query("ALTER TABLE sales ADD COLUMN cancelled_by_name VARCHAR(100) NULL");
+        console.log('[DB Migration] sales.cancelled_by_name añadida.');
+      }
+      if (!salesColNames.includes('multi_sale_id')) {
+        await dbPool.query("ALTER TABLE sales ADD COLUMN multi_sale_id VARCHAR(64) NULL, ADD INDEX idx_multi_sale (multi_sale_id)");
+        console.log('[DB Migration] sales.multi_sale_id añadida.');
+      }
+      if (!salesColNames.includes('draw_date')) {
+        await dbPool.query("ALTER TABLE sales ADD COLUMN draw_date VARCHAR(20) NULL");
+        console.log('[DB Migration] sales.draw_date añadida.');
+      }
+    } catch (err) {
+      console.error('Error al migrar sales:', err.message);
+    }
+
+    // ─── Migración: hora_sorteo en 'lottery_results' ───────────
+    try {
+      const [resCols] = await dbPool.query('SHOW COLUMNS FROM lottery_results');
+      const resColNames = resCols.map(c => c.Field);
+      if (!resColNames.includes('hora_sorteo')) {
+        await dbPool.query("ALTER TABLE lottery_results ADD COLUMN hora_sorteo VARCHAR(20) NULL AFTER fecha_sorteo");
+        console.log('[DB Migration] lottery_results.hora_sorteo añadida.');
+      }
+    } catch (err) {
+      console.error('Error al migrar lottery_results:', err.message);
+    }
+
+    // ─── Migración: allow_multi_draw en 'game_configs' ─────────
+    try {
+      const [gcCols] = await dbPool.query('SHOW COLUMNS FROM game_configs');
+      const gcColNames = gcCols.map(c => c.Field);
+      if (!gcColNames.includes('allow_multi_draw')) {
+        await dbPool.query("ALTER TABLE game_configs ADD COLUMN allow_multi_draw TINYINT(1) NOT NULL DEFAULT 0");
+        console.log('[DB Migration] game_configs.allow_multi_draw añadida.');
+      }
+      if (!gcColNames.includes('allow_series')) {
+        await dbPool.query("ALTER TABLE game_configs ADD COLUMN allow_series TINYINT(1) NOT NULL DEFAULT 0");
+        console.log('[DB Migration] game_configs.allow_series añadida.');
+      }
+    } catch (err) {
+      console.error('Error al migrar game_configs:', err.message);
+    }
+
+    // ─── Migración: columnas en 'users' ────────────────────────
+    try {
+      const [userCols] = await dbPool.query('SHOW COLUMNS FROM users');
+      const userColNames = userCols.map(c => c.Field);
+      if (!userColNames.includes('salary_type')) {
+        await dbPool.query("ALTER TABLE users ADD COLUMN salary_type ENUM('fixed','percentage') NOT NULL DEFAULT 'percentage'");
+        console.log('[DB Migration] users.salary_type añadida.');
+      }
+      if (!userColNames.includes('salary_value')) {
+        await dbPool.query("ALTER TABLE users ADD COLUMN salary_value DECIMAL(10,2) NOT NULL DEFAULT 10.00");
+        console.log('[DB Migration] users.salary_value añadida.');
+      }
+      if (!userColNames.includes('salary_period')) {
+        await dbPool.query("ALTER TABLE users ADD COLUMN salary_period ENUM('daily','weekly','fortnightly','monthly') NOT NULL DEFAULT 'daily'");
+        console.log('[DB Migration] users.salary_period añadida.');
+      }
+      // Asegurar ENUM de role incluye 'root'
+      await dbPool.query("ALTER TABLE users MODIFY COLUMN role ENUM('admin','vendedor','root') NOT NULL DEFAULT 'vendedor'");
+    } catch (err) {
+      console.error('Error al migrar users:', err.message);
+    }
+
     // Insertar usuarios por defecto si la tabla está vacía
     const [userRows] = await dbPool.query('SELECT COUNT(*) AS cnt FROM users');
     if (userRows[0].cnt === 0) {

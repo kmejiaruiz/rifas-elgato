@@ -46,12 +46,14 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { AdminPanelScreen } from './src/screens/AdminPanelScreen';
 import { RootPanelScreen } from './src/screens/RootPanelScreen';
 import { AppBlockedScreen } from './src/screens/AppBlockedScreen';
+import { OfflineSalesQueueModal } from './src/components/OfflineSalesQueueModal';
 
 const AppContent = () => {
   const { user, loading: authLoading, logout } = useAuth();
-  const { loadAllData, settings, lotteries } = useApp();
+  const { loadAllData, settings, lotteries, offlineQueue } = useApp();
   const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' | 'sell' | 'history' | 'settings' | 'admin'
+  const [showQueueModal, setShowQueueModal] = useState(false);
   const [skippedPaymentIds, setSkippedPaymentIds] = useState([]);
 
   const [alertConfig, setAlertConfig] = useState({
@@ -624,6 +626,35 @@ const AppContent = () => {
     <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
       <View style={styles.mainContainer}>
+        {offlineQueue && offlineQueue.length > 0 && (
+          <View style={{
+            backgroundColor: 'rgba(245, 158, 11, 0.12)',
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(245, 158, 11, 0.25)',
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <Text style={{ fontSize: 11, color: '#fbbf24', fontWeight: '700', flex: 1 }}>
+              ⚠️ Tienes {offlineQueue.length} boletos pendientes de sincronización.
+            </Text>
+            <TouchableOpacity 
+              onPress={() => setShowQueueModal(true)}
+              style={{
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+                borderRadius: 6,
+                backgroundColor: 'rgba(245, 158, 11, 0.05)',
+              }}
+            >
+              <Text style={{ fontSize: 10, color: '#fbbf24', fontWeight: '800' }}>Gestionar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {renderScreen()}
       </View>
 
@@ -695,6 +726,7 @@ const AppContent = () => {
         extraVariant={alertConfig.extraVariant}
         onClose={() => setAlertConfig(a => ({ ...a, visible: false }))}
       />
+      <OfflineSalesQueueModal isOpen={showQueueModal} onClose={() => setShowQueueModal(false)} />
     </View>
   );
 };

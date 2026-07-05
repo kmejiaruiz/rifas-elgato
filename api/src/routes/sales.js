@@ -243,6 +243,8 @@ router.post('/', requireAuth, async (req, res) => {
       }
     }
 
+    const bypassClosedLimit = Boolean(b.bypassClosedLimit);
+
     // Validar hora de cierre del sorteo usando el offset de Nicaragua (UTC-6)
     const drawDateTimeStr = `${drawDate}T${horaSorteo}:00-06:00`;
     const drawTime = new Date(drawDateTimeStr).getTime();
@@ -250,12 +252,21 @@ router.post('/', requireAuth, async (req, res) => {
     const closeLimitTime = drawTime - (drawCloseMinutes * 60 * 1000);
 
     if (currentTime >= closeLimitTime) {
-      const parts = horaSorteo.split(':');
-      let hourNum = Number(parts[0]);
-      const ampm = hourNum >= 12 ? 'PM' : 'AM';
-      hourNum = hourNum % 12 || 12;
-      const formattedTime = `${hourNum}:${parts[1]} ${ampm}`;
-      return res.status(400).json({ error: `La venta para el sorteo de las ${formattedTime} está desactivada por sorteo.` });
+      const isWithin24h = (currentTime - drawTime) <= 24 * 60 * 60 * 1000;
+      if (bypassClosedLimit && isWithin24h) {
+        // Permitido forzar sincronización
+      } else {
+        const parts = horaSorteo.split(':');
+        let hourNum = Number(parts[0]);
+        const ampm = hourNum >= 12 ? 'PM' : 'AM';
+        hourNum = hourNum % 12 || 12;
+        const formattedTime = `${hourNum}:${parts[1]} ${ampm}`;
+        
+        if (bypassClosedLimit && !isWithin24h) {
+          return res.status(400).json({ error: `No se puede forzar la sincronización: han transcurrido más de 24 horas desde el sorteo de las ${formattedTime}.` });
+        }
+        return res.status(400).json({ error: `La venta para el sorteo de las ${formattedTime} está desactivada por sorteo.` });
+      }
     }
 
     // 3. Obtener números bloqueados
@@ -365,7 +376,14 @@ router.post('/', requireAuth, async (req, res) => {
       const drawTime2 = new Date(drawDateTimeStr2).getTime();
       const closeLimitTime2 = drawTime2 - (drawCloseMinutes * 60 * 1000);
 
-      if (Date.now() >= closeLimitTime2) continue; // Salta si ya cerró
+      if (Date.now() >= closeLimitTime2) {
+        const isWithin24h_2 = (Date.now() - drawTime2) <= 24 * 60 * 60 * 1000;
+        if (bypassClosedLimit && isWithin24h_2) {
+          // Permitido
+        } else {
+          continue; // Salta si ya cerró
+        }
+      }
 
       const saleId = `sale_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
       

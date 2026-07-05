@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // AppContext — Contexto Global de Datos para Móvil
 // Sincroniza todos los datos del API: settings, juegos, ventas, resumen
 // ============================================================
@@ -84,6 +84,7 @@ export const AppProvider = ({ children }) => {
   const { user } = useAuth();
   const [isServerConnected, setIsServerConnected] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [offlineQueue, setOfflineQueue] = useState([]);
 
   // Pinger para verificar el estado de conexión
   useEffect(() => {
@@ -123,51 +124,107 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const loadOfflineQueue = useCallback(async () => {
+    const q = await storage.get('offline_sales_queue') || [];
+    setOfflineQueue(q);
+  }, []);
+
+  useEffect(() => {
+    loadOfflineQueue();
+    const interval = setInterval(loadOfflineQueue, 4000);
+    return () => clearInterval(interval);
+  }, [loadOfflineQueue]);
+
+  const syncOfflineDataManual = useCallback(async () => {
+    if (!isServerConnected || isSyncing) return;
+    const queue = await storage.get('offline_sales_queue') || [];
+    if (queue.length === 0) return;
+
+    setIsSyncing(true);
+    showToast('Sincronizando documentos pendientes...');
+
+    let syncedCount = 0;
+    let totalSyncedMonto = 0;
+    const remainingQueue = [];
+
+    for (const item of queue) {
+      try {
+        const res = await api.post('/sales', item.data);
+        const sale = res.sales ? res.sales[0] : res.sale;
+        syncedCount++;
+        totalSyncedMonto += parseFloat(sale.monto || 0);
+        dispatch({ type: 'UPDATE_SALE', payload: sale });
+      } catch (err) {
+        console.warn('[Mobile Sync] Error al sincronizar venta:', err.message);
+        item.error = err.message || 'Error de conexión';
+        remainingQueue.push(item);
+      }
+    }
+
+    await storage.set('offline_sales_queue', remainingQueue);
+    setOfflineQueue(remainingQueue);
+    setIsSyncing(false);
+
+    if (syncedCount > 0) {
+      showToast(`${syncedCount} ventas sincronizadas con un total de NIO ${totalSyncedMonto.toFixed(2)} en el servidor.`);
+      loadAllData();
+    }
+  }, [isServerConnected, isSyncing, loadAllData]);
+
   // Sync Engine: detecta el cambio de isServerConnected de false -> true (Re-establecido)
   const prevConnected = useRef(true);
   useEffect(() => {
-    if (isServerConnected && !isSyncing) {
-      const runSync = async () => {
-        const queue = await storage.get('offline_sales_queue') || [];
-        if (queue.length === 0) return;
-
-        setIsSyncing(true);
-
-        const wasDisconnected = !prevConnected.current;
-        if (wasDisconnected) {
-          showToast('Conexión restablecida');
-          showToast('Sincronizando documentos pendientes en el servidor, favor espere...');
-        }
-
-        let syncedCount = 0;
-        let totalSyncedMonto = 0;
-        const remainingQueue = [];
-
-        for (const item of queue) {
-          try {
-            const res = await api.post('/sales', item.data);
-            const sale = res.sales ? res.sales[0] : res.sale;
-            syncedCount++;
-            totalSyncedMonto += parseFloat(sale.monto || 0);
-            dispatch({ type: 'UPDATE_SALE', payload: sale });
-          } catch (err) {
-            console.warn('[Mobile Sync] Error al sincronizar venta:', err.message);
-            remainingQueue.push(item);
-          }
-        }
-
-        await storage.set('offline_sales_queue', remainingQueue);
-        setIsSyncing(false);
-
-        if (syncedCount > 0) {
-          showToast(`${syncedCount} ventas sincronizadas con un total de NIO ${totalSyncedMonto.toFixed(2)} en el servidor.`);
-          loadAllData();
-        }
-      };
-      runSync();
+    if (isServerConnected && !prevConnected.current && !isSyncing) {
+      showToast('Conexión restablecida');
+      syncOfflineDataManual();
     }
     prevConnected.current = isServerConnected;
-  }, [isServerConnected, isSyncing, loadAllData]);
+  }, [isServerConnected, isSyncing, syncOfflineDataManual]);
+
+  const updateOfflineSale = useCallback(async (id, updatedData) => {
+    const queue = await storage.get('offline_sales_queue') || [];
+    const index = queue.findIndex(item => item.id === id);
+    if (index !== -1) {
+      queue[index].data = { ...queue[index].data, ...updatedData };
+      delete queue[index].error;
+      await storage.set('offline_sales_queue', queue);
+      setOfflineQueue(queue);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const deleteOfflineSale = useCallback(async (id) => {
+    const queue = await storage.get('offline_sales_queue') || [];
+    const filtered = queue.filter(item => item.id !== id);
+    await storage.set('offline_sales_queue', filtered);
+    setOfflineQueue(filtered);
+    return filtered;
+  }, []);
+
+  const forceSyncSale = useCallback(async (item) => {
+    if (!isServerConnected) {
+      Alert.alert('Sin Conexión', 'El servidor está desconectado.');
+      return false;
+    }
+    try {
+      const payload = { ...item.data, bypassClosedLimit: true };
+      const res = await api.post('/sales', payload);
+      const sale = res.sales ? res.sales[0] : res.sale;
+
+      dispatch({ type: 'UPDATE_SALE', payload: sale });
+
+      // Eliminar de la cola local
+      await deleteOfflineSale(item.id);
+      showToast('Boleto sincronizado con éxito.');
+      loadAllData();
+      return true;
+    } catch (err) {
+      Alert.alert('Error de Sincronización', err.message || 'Error desconocido.');
+      await updateOfflineSale(item.id, { error: err.message || 'Error en sincronización forzada' });
+      return false;
+    }
+  }, [isServerConnected, deleteOfflineSale, updateOfflineSale, loadAllData]);
 
   const handleOfflineSale = async (saleData) => {
     const tempId = `temp_sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -203,6 +260,7 @@ export const AppProvider = ({ children }) => {
     const queue = await storage.get('offline_sales_queue') || [];
     queue.push({ id: tempId, data: saleData });
     await storage.set('offline_sales_queue', queue);
+    setOfflineQueue(queue);
 
     // Alerta al usuario
     Alert.alert(
@@ -447,6 +505,11 @@ export const AppProvider = ({ children }) => {
         printTicket,
         printTestPage,
         isServerConnected,
+        offlineQueue,
+        updateOfflineSale,
+        deleteOfflineSale,
+        forceSyncSale,
+        syncOfflineDataManual,
       }}
     >
       {children}

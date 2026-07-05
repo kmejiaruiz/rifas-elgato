@@ -37,7 +37,7 @@ export const DashboardScreen = ({ onNavigate }) => {
 
   const buildImageUrl = React.useCallback((url) => {
     if (!url) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) return url;
     try {
       const apiBase = getApiUrl(); // e.g. http://192.168.1.100/app/api
       const match = apiBase.match(/^(https?:\/\/[^\/]+)/);

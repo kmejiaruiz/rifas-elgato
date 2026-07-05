@@ -221,6 +221,7 @@ const GamesTab = () => {
         minNumber: 0,
         maxNumber: 99,
         allowSeries: false,
+        allowMultiDraw: false,
         drawHours: '12:00,15:00,18:00,21:00',
         maxSalesPerNumber: 0.00,
       });
@@ -472,6 +473,19 @@ const GamesTab = () => {
                     Permitir venta por rango (ej: serie del 00 al 99)
                   </label>
                 </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <input
+                    type="checkbox"
+                    id="create-allow-multi-draw"
+                    checked={createForm.allowMultiDraw || false}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, allowMultiDraw: e.target.checked }))}
+                    style={{ width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="create-allow-multi-draw" style={{ margin: 0, userSelect: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                    🔁 Permitir Multi-Sorteo (vender para 2+ sorteos a la vez)
+                  </label>
+                </div>
+
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label>Descripción</label>
                   <input className="form-control" value={createForm.description} onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))} placeholder="Sorteo diario personalizado de 2 dígitos" />

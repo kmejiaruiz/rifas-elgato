@@ -3,7 +3,7 @@
 // Maneja el enrutamiento de pantallas y los proveedores de contexto
 // ============================================================
 import React, { useState } from 'react';
-import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image, Modal, ScrollView, LogBox } from 'react-native';
+import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image, Modal, ScrollView, LogBox, Animated } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -63,6 +63,17 @@ const AppContent = () => {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [skippedPaymentIds, setSkippedPaymentIds] = useState([]);
   const [winnerAlert, setWinnerAlert] = useState(null);
+
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  React.useEffect(() => {
+    fadeAnim.setValue(0.3);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [currentScreen]);
 
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -664,7 +675,9 @@ const AppContent = () => {
             </TouchableOpacity>
           </View>
         )}
-        {renderScreen()}
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          {renderScreen()}
+        </Animated.View>
       </View>
 
       {showBottomNav && (

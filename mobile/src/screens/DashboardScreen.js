@@ -3,7 +3,7 @@
 // Muestra datos del negocio sincronizados desde el API
 // ============================================================
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Image, Animated, Dimensions, ToastAndroid, Platform, Alert } from 'react-native';
 import {
   User, LogOut, Ticket, TrendingUp, XCircle, Lock, ChevronLeft, ChevronRight,
 } from 'lucide-react-native';
@@ -98,11 +98,10 @@ export const DashboardScreen = ({ onNavigate }) => {
 
   const goToSlide = React.useCallback((idx) => {
     setCarouselIndex(idx);
-    Animated.spring(slideAnim, {
+    Animated.timing(slideAnim, {
       toValue: -idx * SCREEN_W,
+      duration: 380,
       useNativeDriver: true,
-      tension: 60,
-      friction: 10,
     }).start();
   }, [slideAnim]);
 
@@ -154,6 +153,15 @@ export const DashboardScreen = ({ onNavigate }) => {
   };
 
   const chartData = getLast7DaysData();
+
+  const handleBarPress = (day) => {
+    const msg = `${day.label} · Ventas: ${formatCurrency(day.sales, currency)} | Pagos: ${formatCurrency(day.payouts, currency)}`;
+    if (Platform.OS === 'android') {
+      ToastAndroid.showWithGravity(msg, ToastAndroid.SHORT, ToastAndroid.BOTTOM);
+    } else {
+      Alert.alert('Resumen del Día', msg, [{ text: 'Aceptar' }]);
+    }
+  };
 
   return (
     <ScrollView
@@ -313,7 +321,12 @@ export const DashboardScreen = ({ onNavigate }) => {
                 const payoutsHeight = (day.payouts / maxVal) * 100;
 
                 return (
-                  <View key={day.dateStr} style={styles.chartColumn}>
+                  <TouchableOpacity 
+                    key={day.dateStr} 
+                    style={styles.chartColumn}
+                    onPress={() => handleBarPress(day)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.barsContainer}>
                       {/* Barra de Ventas */}
                       <View 
@@ -337,7 +350,7 @@ export const DashboardScreen = ({ onNavigate }) => {
                       />
                     </View>
                     <Text style={styles.chartDayLabel}>{day.label}</Text>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>

@@ -389,13 +389,11 @@ const AppContent = () => {
 
         const newWinners = winners.filter(w => !seenWinnerIds.includes(`${w.resultId}-${w.lineId}`));
         if (newWinners.length > 0) {
-          // En la primera corrida (seenWinnerIds vacío), solo registramos sin notificar
-          if (seenWinnerIds.length === 0) {
-            await storage.set(seenKey, winners.map(w => `${w.resultId}-${w.lineId}`));
-          } else {
-            // Trigger in-app Winner Modal
-            setWinnerAlert(newWinners);
+          // Trigger in-app Winner Modal
+          setWinnerAlert(newWinners);
 
+          // Solo enviar notificaciones push locales si ya existía una lista guardada (evita spam de notificaciones al abrir la app)
+          if (seenWinnerIds.length > 0) {
             for (const w of newWinners) {
               const displayNum = w.lotteryId === 'fechea' ? w.numeroGanador : `#${w.numeroGanador || w.numero}`;
               try {
@@ -409,9 +407,9 @@ const AppContent = () => {
                 });
               } catch (_) {}
             }
-            const updatedSeen = [...seenWinnerIds, ...newWinners.map(w => `${w.resultId}-${w.lineId}`)];
-            await storage.set(seenKey, updatedSeen);
           }
+          const updatedSeen = [...seenWinnerIds, ...newWinners.map(w => `${w.resultId}-${w.lineId}`)];
+          await storage.set(seenKey, updatedSeen);
         }
 
       } catch (err) {

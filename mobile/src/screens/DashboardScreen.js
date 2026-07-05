@@ -260,30 +260,32 @@ export const DashboardScreen = ({ onNavigate }) => {
       {!loading && results && results.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Últimos Resultados</Text>
-          <GlassCard style={{ padding: 14, marginBottom: 16 }}>
-            {results.slice(0, 5).map((r, idx) => {
-              const lottery = lotteries.find(l => l.id === r.lotteryId);
-              const displayNum = r.lotteryId === 'fechea' ? r.numeroGanador : `#${r.numeroGanador}`;
-              return (
-                <View
-                  key={r.id}
-                  style={[
-                    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-                    idx < Math.min(results.length, 5) - 1 && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }
-                  ]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{lottery?.name || r.lotteryId}</Text>
-                      <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>{r.fechaSorteo} ({r.horaSorteo})</Text>
+          <GlassCard style={{ padding: 14, paddingBottom: 8, marginBottom: 16 }}>
+            <ScrollView style={{ maxHeight: 135 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
+              {results.slice(0, 10).map((r, idx) => {
+                const lottery = lotteries.find(l => l.id === r.lotteryId);
+                const displayNum = r.lotteryId === 'fechea' ? r.numeroGanador : `#${r.numeroGanador}`;
+                return (
+                  <View
+                    key={r.id}
+                    style={[
+                      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+                      idx < Math.min(results.length, 10) - 1 && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }
+                    ]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{lottery?.name || r.lotteryId}</Text>
+                        <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>{r.fechaSorteo} ({r.horaSorteo})</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: 'rgba(168,85,247,0.15)', borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                      <Text style={{ color: '#d8b4fe', fontWeight: '900', fontSize: 13 }}>{displayNum}</Text>
                     </View>
                   </View>
-                  <View style={{ backgroundColor: 'rgba(168,85,247,0.15)', borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
-                    <Text style={{ color: '#d8b4fe', fontWeight: '900', fontSize: 13 }}>{displayNum}</Text>
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </ScrollView>
           </GlassCard>
         </>
       )}

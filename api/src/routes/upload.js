@@ -2,28 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const { requireAdmin } = require('../utils/helpers');
 
-// Ruta física para guardar las imágenes (al mismo nivel que la carpeta web / uploads)
-const uploadDir = path.join(__dirname, '../../../uploads'); // c:\xampp\htdocs\app\uploads
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configuración de almacenamiento en disco con Multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueSuffix = Date.now() + '_' + crypto.randomBytes(4).toString('hex');
-    cb(null, `carousel_${uniqueSuffix}${ext}`);
-  }
-});
+// Configuración de almacenamiento en memoria con Multer para compatibilidad con Vercel/Serverless
+const storage = multer.memoryStorage();
 
 // Filtro de extensiones y límite de tamaño
 const upload = multer({
@@ -39,7 +21,7 @@ const upload = multer({
   }
 }).single('image');
 
-// ─── POST /api/upload ➔ Subir imagen del carrusel (Admin) ────────
+// ─── POST /api/upload ➔ Subir imagen del carrusel y convertir a Base64 (Admin/Root) ────────
 router.post('/', requireAdmin, (req, res) => {
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -55,10 +37,14 @@ router.post('/', requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'No se subió ninguna imagen.' });
     }
 
-    // Retornamos la ruta relativa para el navegador
-    // Formato: /uploads/carousel_xxx.jpg
-    const relativePath = `/uploads/${req.file.filename}`;
-    res.json({ url: relativePath });
+    try {
+      // Convertir el buffer de la imagen a un Data URL Base64 para guardarlo en la base de datos de forma persistente
+      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      res.json({ url: base64Image });
+    } catch (parseErr) {
+      console.error('Error al codificar imagen a Base64:', parseErr.message);
+      res.status(500).json({ error: 'Error interno al procesar la imagen.' });
+    }
   });
 });
 

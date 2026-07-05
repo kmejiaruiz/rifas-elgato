@@ -328,6 +328,15 @@ async function initSchema(dbPool) {
       console.error('Error al migrar users:', err.message);
     }
 
+    // ─── Migración: app_settings.value to LONGTEXT ──────────────
+    try {
+      await dbPool.query("ALTER TABLE app_settings MODIFY COLUMN `value` LONGTEXT");
+      console.log('[DB Migration] app_settings.value modificada a LONGTEXT.');
+    } catch (err) {
+      console.error('Error al migrar app_settings:', err.message);
+    }
+
+
     // Insertar usuarios por defecto si la tabla está vacía
     const [userRows] = await dbPool.query('SELECT COUNT(*) AS cnt FROM users');
     if (userRows[0].cnt === 0) {

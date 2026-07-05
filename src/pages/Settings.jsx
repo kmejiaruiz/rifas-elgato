@@ -26,7 +26,7 @@ export const Settings = () => {
 
   const buildImageUrl = (url) => {
     if (!url) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) return url;
     try {
       const apiUrl = getApiUrl(); // window.location.origin
       return apiUrl.replace(/\/+$/, '') + url;

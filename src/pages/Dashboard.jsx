@@ -33,7 +33,7 @@ export const Dashboard = () => {
   // Build full image URL from relative path (e.g. /app/uploads/carousel_xxx.jpg)
   const buildImageUrl = (url) => {
     if (!url) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) return url;
     // Relative path — attach to API origin
     try {
       const apiUrl = getApiUrl(); // e.g. http://192.168.1.100/app/api

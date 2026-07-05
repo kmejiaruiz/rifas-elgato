@@ -80,8 +80,8 @@ router.get('/', requireAuth, async (req, res) => {
       return res.json({ pendingPayments: rows });
     }
 
-    // Para el resto de acciones (reportes, listado de usuarios), se requiere rol de administrador
-    if (user.role !== 'admin') {
+    // Para el resto de acciones (reportes, listado de usuarios), se requiere rol de administrador o root
+    if (user.role !== 'admin' && user.role !== 'root') {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
 
@@ -224,11 +224,12 @@ router.post('/', requireAuth, async (req, res) => {
     }
 
     // Para el resto de acciones (registrar pagos, cancelar pagos, crear usuarios), se requiere rol de administrador
-    if (user.role !== 'admin') {
+    // Para el resto de acciones (registrar pagos, cancelar pagos, crear usuarios), se requiere rol de administrador o root
+    if (user.role !== 'admin' && user.role !== 'root') {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
 
-    // 2. Cancelar pago (Admin)
+    // 2. Cancelar pago (Admin/Root)
     if (req.query.cancel_pay !== undefined) {
       const { paymentId } = req.body;
       if (!paymentId) {
@@ -286,7 +287,7 @@ router.post('/', requireAuth, async (req, res) => {
 
       // Insertar el pago (Pendiente por defecto, guarda quién lo solicita)
       await db.query(
-        'INSERT INTO salary_payments (seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name) VALUES (?, ?, ?, ?, ?, ?, ?, "pending", ?)',
+        "INSERT INTO salary_payments (seller_id, start_date, end_date, total_sold, prizes_total, commission_amount, net_salary, status, created_by_name) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
         [sellerId, startDate, endDate, totalSold, prizesTotal, commissionAmount, netSalary, user.name]
       );
 

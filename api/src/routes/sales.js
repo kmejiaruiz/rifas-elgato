@@ -491,7 +491,7 @@ router.put('/', requireAuth, async (req, res) => {
         const cleanId = String(id).substring(id.length - 6).toUpperCase();
         const msg = `El boleto #${cleanId} (${lotteryName}) fue pagado por ${whoPaid}. Monto pagado: ${currency}${totalPrize.toFixed(2)}`;
 
-        await db.query('INSERT INTO notifications (user_id, title, message) VALUES (NULL, "Premio Pagado", ?)', [msg]);
+        await db.query("INSERT INTO notifications (user_id, title, message) VALUES (NULL, 'Premio Pagado', ?)", [msg]);
       } catch (err) {
         // Silencioso
       }
@@ -578,7 +578,7 @@ router.put('/', requireAuth, async (req, res) => {
       const cleanId = String(id).substring(id.length - 6).toUpperCase();
       const msg = `El boleto #${cleanId} (${lotteryName}) por ${currency}${Number(sale.monto).toFixed(2)} fue anulado por ${cancelledByName}.`;
 
-      await db.query('INSERT INTO notifications (user_id, title, message) VALUES (NULL, "Boleto Anulado", ?)', [msg]);
+      await db.query("INSERT INTO notifications (user_id, title, message) VALUES (NULL, 'Boleto Anulado', ?)", [msg]);
     } catch (err) {
       // Silencioso
     }

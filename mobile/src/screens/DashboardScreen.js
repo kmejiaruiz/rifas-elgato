@@ -9,7 +9,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOWS, getThemeColors } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { HeaderClock } from '../components/HeaderClock';
 import { getApiUrl } from '../services/apiService';
@@ -20,9 +20,10 @@ const SCREEN_W = Dimensions.get('window').width;
 const formatCurrency = (amount, currency = 'NIO') =>
   `${currency} ${parseFloat(amount || 0).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export const DashboardScreen = ({ onNavigate }) => {
+export const DashboardScreen = ({ onNavigate, onOpenSidebar, profileImage }) => {
   const { user, logout } = useAuth();
-  const { dailySummary, settings, loading, loadAllData, lotteries, sales, isServerConnected } = useApp();
+  const { dailySummary, settings, loading, loadAllData, lotteries, sales, isServerConnected, isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
   const currency = settings.currency || 'NIO';
@@ -165,7 +166,7 @@ export const DashboardScreen = ({ onNavigate }) => {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: activeColors.bgBase }]}
       contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl
@@ -179,14 +180,18 @@ export const DashboardScreen = ({ onNavigate }) => {
       {/* ─── Cabecera ────────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
-          <View style={styles.userBadge}>
-            <User size={20} color="#fff" />
-          </View>
+          <TouchableOpacity onPress={onOpenSidebar} style={styles.userBadge} activeOpacity={0.7}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+            ) : (
+              <User size={20} color="#fff" />
+            )}
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.businessName}>{businessName}</Text>
-            <Text style={styles.username} numberOfLines={1}>{user?.name || 'Vendedor'}</Text>
+            <Text style={[styles.businessName, { color: activeColors.primaryLight }]}>{businessName}</Text>
+            <Text style={[styles.username, { color: activeColors.textPrimary }]} numberOfLines={1}>{user?.name || 'Vendedor'}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Text style={styles.userRole}>
+              <Text style={[styles.userRole, { color: activeColors.textSecondary }]}>
                 {user?.role === 'admin' ? 'Administrador' : user?.role === 'root' ? 'Root' : 'Vendedor'}
               </Text>
               <View style={{ 
@@ -225,49 +230,60 @@ export const DashboardScreen = ({ onNavigate }) => {
       )}
 
       {/* ─── Resumen del día ──────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Resumen de Hoy</Text>
+      <Text style={[styles.sectionTitle, { color: activeColors.textSecondary }]}>Resumen de Hoy</Text>
 
-      <View style={styles.metricsGrid}>
+      <GlassCard style={styles.metricsContainer}>
         {/* Total vendido */}
-        <GlassCard style={[styles.metricCard, { borderLeftColor: COLORS.success, borderLeftWidth: 3 }]}>
-          <View style={styles.metricRow}>
-            <TrendingUp size={18} color={COLORS.successLight} />
+        <View style={styles.metricCell}>
+          <View style={[styles.metricIconCircle, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+            <TrendingUp size={16} color={activeColors.successLight} />
           </View>
-          <Text style={styles.metricLabel}>Total Vendido</Text>
-          <Text style={[styles.metricValue, { color: COLORS.successLight }]}>
-            {formatCurrency(dailySummary.total, currency)}
-          </Text>
-        </GlassCard>
-
-        {/* Boletos activos */}
-        <GlassCard style={[styles.metricCard, { borderLeftColor: COLORS.primary, borderLeftWidth: 3 }]}>
-          <View style={styles.metricRow}>
-            <Ticket size={18} color={COLORS.primaryLight} />
-          </View>
-          <Text style={styles.metricLabel}>Boletos</Text>
-          <Text style={[styles.metricValue, { color: COLORS.primaryLight }]}>
-            {dailySummary.count || 0}
-          </Text>
-        </GlassCard>
-
-        {/* Anulados */}
-        {(dailySummary.cancelled || 0) > 0 && (
-          <GlassCard style={[styles.metricCard, { borderLeftColor: COLORS.danger, borderLeftWidth: 3 }]}>
-            <View style={styles.metricRow}>
-              <XCircle size={18} color={COLORS.dangerLight} />
-            </View>
-            <Text style={styles.metricLabel}>Anulados</Text>
-            <Text style={[styles.metricValue, { color: COLORS.dangerLight }]}>
-              {dailySummary.cancelled}
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.metricCellLabel}>Vendido</Text>
+            <Text style={[styles.metricCellVal, { color: activeColors.successLight }]} numberOfLines={1}>
+              {formatCurrency(dailySummary.total, currency).replace(currency + ' ', '')}
             </Text>
-          </GlassCard>
+          </View>
+        </View>
+
+        <View style={styles.metricDivider} />
+
+        {/* Boletos */}
+        <View style={styles.metricCell}>
+          <View style={[styles.metricIconCircle, { backgroundColor: 'rgba(124,58,237,0.12)' }]}>
+            <Ticket size={16} color={activeColors.primaryLight} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.metricCellLabel}>Boletos</Text>
+            <Text style={[styles.metricCellVal, { color: activeColors.primaryLight }]}>
+              {dailySummary.count || 0}
+            </Text>
+          </View>
+        </View>
+
+        {(dailySummary.cancelled || 0) > 0 && (
+          <>
+            <View style={styles.metricDivider} />
+            {/* Anulados */}
+            <View style={styles.metricCell}>
+              <View style={[styles.metricIconCircle, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                <XCircle size={16} color={activeColors.dangerLight} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.metricCellLabel}>Anulado</Text>
+                <Text style={[styles.metricCellVal, { color: activeColors.dangerLight }]}>
+                  {dailySummary.cancelled}
+                </Text>
+              </View>
+            </View>
+          </>
         )}
-      </View>
+      </GlassCard>
 
       {/* ─── Resultados Recientes ────────────────────────────── */}
       {!loading && results && results.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Últimos Resultados</Text>
+          <Text style={[styles.sectionTitle, { color: activeColors.textSecondary }]}>Últimos Resultados</Text>
           <GlassCard style={{ padding: 14, paddingBottom: 8, marginBottom: 16 }}>
             <ScrollView style={{ maxHeight: 135 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={false}>
               {results.slice(0, 10).map((r, idx) => {
@@ -278,13 +294,13 @@ export const DashboardScreen = ({ onNavigate }) => {
                     key={r.id}
                     style={[
                       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-                      idx < Math.min(results.length, 10) - 1 && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }
+                      idx < Math.min(results.length, 10) - 1 && { borderBottomWidth: 1, borderBottomColor: activeColors.border }
                     ]}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{lottery?.name || r.lotteryId}</Text>
-                        <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>{r.fechaSorteo} ({r.horaSorteo})</Text>
+                        <Text style={{ color: activeColors.textPrimary, fontSize: 12, fontWeight: '700' }}>{lottery?.name || r.lotteryId}</Text>
+                        <Text style={{ color: activeColors.textMuted, fontSize: 10 }}>{r.fechaSorteo} ({r.horaSorteo})</Text>
                       </View>
                     </View>
                     <View style={{ backgroundColor: 'rgba(168,85,247,0.15)', borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
@@ -301,20 +317,20 @@ export const DashboardScreen = ({ onNavigate }) => {
       {/* ─── Gráfico de Ventas y Pagos ───────────────────────── */}
       {!loading && sales && sales.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Rendimiento Semanal</Text>
+          <Text style={[styles.sectionTitle, { color: activeColors.textSecondary }]}>Rendimiento Semanal</Text>
           <GlassCard style={styles.chartCard}>
             <View style={styles.chartLegend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendColor, { backgroundColor: '#a855f7' }]} />
-                <Text style={styles.legendText}>Ventas</Text>
+                <Text style={[styles.legendText, { color: activeColors.textSecondary }]}>Ventas</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendColor, { backgroundColor: '#10b981' }]} />
-                <Text style={styles.legendText}>Pagos</Text>
+                <Text style={[styles.legendText, { color: activeColors.textSecondary }]}>Pagos</Text>
               </View>
             </View>
 
-            <View style={styles.chartBody}>
+            <View style={[styles.chartBody, { borderBottomColor: activeColors.border }]}>
               {chartData.map((day) => {
                 const maxVal = Math.max(...chartData.map(d => Math.max(d.sales, d.payouts)), 100);
                 const salesHeight = (day.sales / maxVal) * 100; // max height is 100
@@ -334,7 +350,7 @@ export const DashboardScreen = ({ onNavigate }) => {
                           styles.bar, 
                           { 
                             height: Math.max(salesHeight, 2), 
-                            backgroundColor: day.sales > 0 ? '#a855f7' : 'rgba(255,255,255,0.05)' 
+                            backgroundColor: day.sales > 0 ? '#a855f7' : (isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')
                           }
                         ]} 
                       />
@@ -344,12 +360,12 @@ export const DashboardScreen = ({ onNavigate }) => {
                           styles.bar, 
                           { 
                             height: Math.max(payoutsHeight, 2), 
-                            backgroundColor: day.payouts > 0 ? '#10b981' : 'rgba(255,255,255,0.05)' 
+                            backgroundColor: day.payouts > 0 ? '#10b981' : (isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')
                           }
                         ]} 
                       />
                     </View>
-                    <Text style={styles.chartDayLabel}>{day.label}</Text>
+                    <Text style={[styles.chartDayLabel, { color: activeColors.textMuted }]}>{day.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -572,31 +588,41 @@ const styles = StyleSheet.create({
   },
 
   // Metrics
-  metricsGrid: {
+  metricsContainer: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     marginBottom: 18,
-    flexWrap: 'wrap',
   },
-  metricCard: {
+  metricCell: {
     flex: 1,
-    minWidth: '45%',
-    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  metricRow: {
-    marginBottom: 6,
+  metricIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  metricLabel: {
-    fontSize: 10,
+  metricCellLabel: {
+    fontSize: 9,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 2,
   },
-  metricValue: {
-    fontSize: 17,
+  metricCellVal: {
+    fontSize: 13,
     fontWeight: '900',
-    lineHeight: 22,
+  },
+  metricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(128, 128, 128, 0.15)',
+    marginHorizontal: 4,
   },
 
   // By game

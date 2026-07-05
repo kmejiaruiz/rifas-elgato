@@ -68,3 +68,28 @@ export const GLASS_STYLE = {
   borderRadius: RADIUS.lg,
   overflow: 'hidden',
 };
+
+export const getThemeColors = (isDarkMode) => {
+  if (isDarkMode) {
+    return COLORS;
+  } else {
+    return {
+      ...COLORS,
+      bgBase: '#f3f4f6',
+      bgCard: 'rgba(255, 255, 255, 0.85)',
+      bgElevated: '#ffffff',
+      border: 'rgba(0, 0, 0, 0.08)',
+      textPrimary: '#111827',
+      textSecondary: '#4b5563',
+      textMuted: '#9ca3af',
+      primary: '#7c3aed',
+      primaryLight: '#6d28d9',
+      success: '#10b981',
+      successLight: '#059669',
+      danger: '#ef4444',
+      dangerLight: '#dc2626',
+      warning: '#d97706',
+      info: '#2563eb',
+    };
+  }
+};

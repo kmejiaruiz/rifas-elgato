@@ -3,12 +3,20 @@
 // ============================================================
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
+import { RADIUS, SHADOWS, getThemeColors } from '../styles/theme';
+import { useApp } from '../context/AppContext';
 
 export const GlassCard = ({ children, style, statusColor }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
+
   return (
     <View style={[
       styles.card,
+      {
+        backgroundColor: activeColors.bgCard,
+        borderColor: activeColors.border,
+      },
       statusColor ? { borderColor: statusColor, borderWidth: 1.5 } : null,
       style
     ]}>
@@ -19,9 +27,7 @@ export const GlassCard = ({ children, style, statusColor }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(23, 31, 50, 0.75)', // Fondo oscuro translúcido
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',   // Borde sutil del cristal
     borderRadius: RADIUS.lg,
     padding: 16,
     marginVertical: 6,

@@ -7,12 +7,14 @@ import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, Touchab
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
-import { COLORS } from './src/styles/theme';
-import { Home, Ticket, History, Settings, ShieldAlert, Trophy } from 'lucide-react-native';
+import { COLORS, getThemeColors } from './src/styles/theme';
+import { Home, Ticket, History, Settings, ShieldAlert, Trophy, User, LogOut, Key, Sun, Moon, Camera, Info, X } from 'lucide-react-native';
 import { CustomAlert } from './src/components/CustomAlert';
 import { api } from './src/services/apiService';
 import * as Notifications from 'expo-notifications';
+import * as ImagePicker from 'expo-image-picker';
 import { storage } from './src/services/storageService';
+import { FormInput } from './src/components/FormInput';
 
 // Ignorar advertencias sobre limitaciones de expo-notifications en Expo Go
 LogBox.ignoreLogs([
@@ -56,8 +58,9 @@ import { AppBlockedScreen } from './src/screens/AppBlockedScreen';
 import { OfflineSalesQueueModal } from './src/components/OfflineSalesQueueModal';
 
 const AppContent = () => {
-  const { user, loading: authLoading, logout } = useAuth();
-  const { loadAllData, settings, lotteries, offlineQueue } = useApp();
+  const { user, loading: authLoading, logout, updateUser } = useAuth();
+  const { loadAllData, settings, lotteries, offlineQueue, isDarkMode, toggleTheme } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' | 'sell' | 'history' | 'settings' | 'admin'
   const [showQueueModal, setShowQueueModal] = useState(false);
@@ -74,6 +77,106 @@ const AppContent = () => {
       useNativeDriver: true,
     }).start();
   }, [currentScreen]);
+
+  // --- Sidebar state ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarAnim] = useState(new Animated.Value(0)); // 0 = cerrado, 1 = abierto
+
+  const toggleSidebar = (open) => {
+    if (open) {
+      setIsSidebarOpen(true);
+      Animated.timing(sidebarAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(sidebarAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => setIsSidebarOpen(false));
+    }
+  };
+
+  // --- Foto de perfil ---
+  const [profileImage, setProfileImage] = useState(null);
+
+  React.useEffect(() => {
+    if (user) {
+      const loadAvatar = async () => {
+        try {
+          const cachedImg = await storage.get(`user_avatar_${user.id}`);
+          if (cachedImg) {
+            setProfileImage(cachedImg);
+          } else {
+            setProfileImage(null);
+          }
+        } catch (_) {}
+      };
+      loadAvatar();
+    }
+  }, [user]);
+
+  const pickProfileImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permiso Requerido', 'Necesitamos acceso a tu galería para cambiar tu foto de perfil.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setProfileImage(uri);
+        await storage.set(`user_avatar_${user.id}`, uri);
+        Alert.alert('Éxito', 'Foto de perfil actualizada correctamente.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen: ' + err.message);
+    }
+  };
+
+  // --- Modal editar perfil (contraseña) ---
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword) {
+      Alert.alert('Campo requerido', 'Por favor ingrese la nueva contraseña.');
+      return;
+    }
+    if (newPassword.length < 4) {
+      Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Las contraseñas no coinciden.');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      await updateUser(user.id, { password: newPassword });
+      Alert.alert('Éxito', 'Contraseña actualizada correctamente.');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowEditProfileModal(false);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo actualizar la contraseña.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -635,7 +738,13 @@ const AppContent = () => {
       case 'admin':
         return <AdminPanelScreen onNavigate={setCurrentScreen} />;
       default:
-        return <DashboardScreen onNavigate={setCurrentScreen} />;
+        return (
+          <DashboardScreen 
+            onNavigate={setCurrentScreen} 
+            onOpenSidebar={() => toggleSidebar(true)}
+            profileImage={profileImage}
+          />
+        );
     }
   };
 
@@ -643,9 +752,12 @@ const AppContent = () => {
   const showBottomNav = user && user.role !== 'root' && !(settings && settings.isBlocked);
 
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
-      <View style={styles.mainContainer}>
+    <View style={[styles.safeArea, { paddingTop: insets.top, backgroundColor: activeColors.bgBase }]}>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor={isDarkMode ? '#111827' : '#ffffff'} 
+      />
+      <View style={[styles.mainContainer, { backgroundColor: activeColors.bgBase }]}>
         {offlineQueue && offlineQueue.length > 0 && (
           <View style={{
             backgroundColor: 'rgba(245, 158, 11, 0.12)',
@@ -683,7 +795,9 @@ const AppContent = () => {
       {showBottomNav && (
         <View style={[styles.tabBar, {
           height: 52 + Math.max(insets.bottom, 6),
-          paddingBottom: Math.max(insets.bottom, 4)
+          paddingBottom: Math.max(insets.bottom, 4),
+          backgroundColor: isDarkMode ? '#111827' : '#ffffff',
+          borderTopColor: activeColors.border,
         }]}>
           <TouchableOpacity
             style={styles.tabBtn}
@@ -784,6 +898,218 @@ const AppContent = () => {
         onClose={() => setAlertConfig(a => ({ ...a, visible: false }))}
       />
       <OfflineSalesQueueModal isOpen={showQueueModal} onClose={() => setShowQueueModal(false)} />
+
+      {/* --- Menú Lateral (Sidebar Drawer) --- */}
+      {isSidebarOpen && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 9999 }]}
+          onPress={() => toggleSidebar(false)}
+        >
+          <Animated.View
+            style={[
+              styles.sidebarDrawer,
+              {
+                backgroundColor: activeColors.bgElevated,
+                borderRightColor: activeColors.border,
+                transform: [
+                  {
+                    translateX: sidebarAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-280, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            {/* Header / Foto / Info de Usuario */}
+            <View style={[styles.sidebarHeader, { borderBottomColor: activeColors.border }]}>
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity onPress={pickProfileImage} activeOpacity={0.8} style={styles.avatarWrapper}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={[styles.avatarPlaceholder, { backgroundColor: activeColors.primary }]}>
+                      <User size={32} color="#fff" />
+                    </View>
+                  )}
+                  <View style={[styles.cameraBadge, { backgroundColor: activeColors.primary }]}>
+                    <Camera size={10} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.sidebarName, { color: activeColors.textPrimary }]} numberOfLines={1}>
+                {user?.name || 'Usuario'}
+              </Text>
+              <Text style={[styles.sidebarSubtitle, { color: activeColors.textMuted }]} numberOfLines={1}>
+                @{user?.username || 'vendedor'} · {user?.role === 'admin' ? 'Administrador' : user?.role === 'root' ? 'Root' : 'Vendedor'}
+              </Text>
+            </View>
+
+            {/* Opciones del menú */}
+            <ScrollView style={styles.sidebarMenu} contentContainerStyle={{ paddingVertical: 12 }}>
+              <TouchableOpacity
+                style={[styles.sidebarItem, { borderBottomColor: activeColors.border }]}
+                onPress={() => {
+                  toggleSidebar(false);
+                  setShowEditProfileModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Key size={18} color={activeColors.primaryLight} style={styles.sidebarIcon} />
+                <Text style={[styles.sidebarText, { color: activeColors.textPrimary }]}>Editar Contraseña</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.sidebarItem, { borderBottomColor: activeColors.border, justifyContent: 'space-between' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {isDarkMode ? (
+                    <Moon size={18} color="#fbbf24" style={styles.sidebarIcon} />
+                  ) : (
+                    <Sun size={18} color="#f59e0b" style={styles.sidebarIcon} />
+                  )}
+                  <Text style={[styles.sidebarText, { color: activeColors.textPrimary }]}>Modo Oscuro</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={toggleTheme}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.themeSwitchTrack,
+                    {
+                      backgroundColor: isDarkMode ? activeColors.primary : '#d1d5db',
+                      alignItems: isDarkMode ? 'flex-end' : 'flex-start',
+                    },
+                  ]}
+                >
+                  <View style={styles.themeSwitchThumb} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Info de la App */}
+              <View style={[styles.sidebarItemInfo, { borderBottomColor: activeColors.border }]}>
+                <Info size={16} color={activeColors.textSecondary} style={{ marginRight: 8, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.infoTitle, { color: activeColors.textSecondary }]}>Información</Text>
+                  <Text style={[styles.infoDesc, { color: activeColors.textMuted }]}>
+                    Servidor: {settings.businessName || 'Zentric'}
+                  </Text>
+                  <Text style={[styles.infoDesc, { color: activeColors.textMuted }]}>
+                    Red: {isServerConnected ? 'Conectado (Servidor)' : 'Modo Offline (Local)'}
+                  </Text>
+                  {offlineQueue.length > 0 && (
+                    <Text style={[styles.infoDesc, { color: '#fbbf24', fontWeight: '700' }]}>
+                      Pendientes: {offlineQueue.length} boletos
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Botón cerrar sesión */}
+              <TouchableOpacity
+                style={[styles.sidebarItem, { borderBottomColor: activeColors.border, marginTop: 16 }]}
+                onPress={() => {
+                  toggleSidebar(false);
+                  logout();
+                }}
+                activeOpacity={0.7}
+              >
+                <LogOut size={18} color={COLORS.dangerLight} style={styles.sidebarIcon} />
+                <Text style={[styles.sidebarText, { color: COLORS.dangerLight }]}>Cerrar Sesión</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Versión de la app al fondo */}
+            <View style={[styles.sidebarFooter, { borderTopColor: activeColors.border }]}>
+              <Text style={[styles.sidebarVersionText, { color: activeColors.textMuted }]}>
+                ZENTRIC MOBILE
+              </Text>
+              <Text style={{ fontSize: 9, color: activeColors.textMuted, marginTop: 2 }}>
+                Versión 1.0.1 (EAS Update OTA)
+              </Text>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
+
+      {/* --- Modal Editar Perfil --- */}
+      <Modal
+        visible={showEditProfileModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditProfileModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: activeColors.bgElevated, borderColor: activeColors.border }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, width: '100%' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: activeColors.textPrimary }}>
+                Editar Perfil
+              </Text>
+              <TouchableOpacity onPress={() => setShowEditProfileModal(false)} style={{ padding: 4 }}>
+                <X size={18} color={activeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Read-Only Username */}
+            <View style={styles.disabledInputWrapper}>
+              <Text style={[styles.disabledInputLabel, { color: activeColors.textMuted }]}>Usuario</Text>
+              <View style={[styles.disabledInputBox, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
+                <Text style={{ color: activeColors.textMuted, fontSize: 13 }}>@{user?.username}</Text>
+              </View>
+            </View>
+
+            {/* Read-Only Name */}
+            <View style={styles.disabledInputWrapper}>
+              <Text style={[styles.disabledInputLabel, { color: activeColors.textMuted }]}>Nombre completo</Text>
+              <View style={[styles.disabledInputBox, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
+                <Text style={{ color: activeColors.textMuted, fontSize: 13 }}>{user?.name}</Text>
+              </View>
+              <Text style={{ fontSize: 9, color: activeColors.textMuted, marginTop: 4 }}>
+                * El nombre y usuario no se pueden editar por el vendedor.
+              </Text>
+            </View>
+
+            {/* Campos de contraseña */}
+            <View style={{ width: '100%', marginTop: 10 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: activeColors.textSecondary, marginBottom: 6 }}>
+                Nueva Contraseña
+              </Text>
+              <FormInput
+                placeholder="Mínimo 4 caracteres"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                style={{ marginBottom: 12 }}
+              />
+
+              <Text style={{ fontSize: 11, fontWeight: '700', color: activeColors.textSecondary, marginBottom: 6 }}>
+                Confirmar Contraseña
+              </Text>
+              <FormInput
+                placeholder="Repita la contraseña"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                style={{ marginBottom: 16 }}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: activeColors.primary }]}
+              onPress={handleUpdatePassword}
+              disabled={savingProfile}
+              activeOpacity={0.8}
+            >
+              {savingProfile ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Guardar Cambios</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -986,5 +1312,175 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  // Sidebar styles
+  sidebarDrawer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 280,
+    borderRightWidth: 1,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 16,
+  },
+  sidebarHeader: {
+    padding: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  avatarContainer: {
+    marginBottom: 12,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 2,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 36,
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sidebarName: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  sidebarSubtitle: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  sidebarMenu: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  sidebarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  sidebarIcon: {
+    marginRight: 12,
+  },
+  sidebarText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  themeSwitchTrack: {
+    width: 38,
+    height: 20,
+    borderRadius: 10,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  themeSwitchThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sidebarItemInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  infoTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  infoDesc: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: 1,
+  },
+  sidebarFooter: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+  },
+  sidebarVersionText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  // Modal Edit Profile
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 10,
+  },
+  disabledInputWrapper: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  disabledInputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  disabledInputBox: {
+    width: '100%',
+    height: 40,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.15)',
+  },
+  modalSubmitBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 99,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalSubmitBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
   },
 });

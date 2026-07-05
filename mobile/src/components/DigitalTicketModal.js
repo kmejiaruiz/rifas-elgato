@@ -13,7 +13,11 @@ import { captureRef } from 'react-native-view-shot';
 // ─── Helpers localizados para independizar el componente ────────
 const parseDate = (str) => {
   if (!str || typeof str !== 'string') return new Date();
-  return new Date(str.replace(' ', 'T'));
+  const clean = str.replace(' ', 'T');
+  if (!clean.includes('Z') && !clean.includes('+') && !clean.match(/-\d{2}:\d{2}$/)) {
+    return new Date(clean + 'Z');
+  }
+  return new Date(clean);
 };
 
 const formatDateShort = (str) => {

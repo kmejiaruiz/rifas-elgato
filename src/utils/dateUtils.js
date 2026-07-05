@@ -5,7 +5,11 @@
 export const parseDate = (dateStr) => {
   if (!dateStr) return new Date();
   // MySQL: "2026-05-19 09:34:35" → ISO: "2026-05-19T09:34:35"
-  return new Date(String(dateStr).replace(' ', 'T'));
+  const clean = String(dateStr).replace(' ', 'T');
+  if (!clean.includes('Z') && !clean.includes('+') && !clean.match(/-\d{2}:\d{2}$/)) {
+    return new Date(clean + 'Z');
+  }
+  return new Date(clean);
 };
 
 /**

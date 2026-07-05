@@ -22,6 +22,7 @@
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0b0f19"
       },
       "package": "com.klmejia.amarantomobile"

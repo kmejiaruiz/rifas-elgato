@@ -84,7 +84,7 @@ router.put('/', requireRoot, async (req, res) => {
       const disableAt = formatMySQLDate(futureDate);
 
       await db.query("UPDATE app_settings SET `value`='active' WHERE `key`='appStatus'");
-      await db.query('UPDATE app_settings SET `value` = ? WHERE `key` = "appDisableAt"', [disableAt]);
+      await db.query("UPDATE app_settings SET `value` = ? WHERE `key` = 'appDisableAt'", [disableAt]);
       await auditLog('app_scheduled', rootUser.id, { minutes: mins, disableAt }, req);
 
       const appControl = await getAppStatus();

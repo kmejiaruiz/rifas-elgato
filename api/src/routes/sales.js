@@ -548,7 +548,7 @@ router.put('/', requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Para realizar esta acción se requieren credenciales de administrador.' });
       }
 
-      const [admRows] = await db.query('SELECT * FROM users WHERE username = ? AND role IN ("admin", "root") AND active = 1', [
+      const [admRows] = await db.query("SELECT * FROM users WHERE username = ? AND role IN ('admin', 'root') AND active = 1", [
         adminUsername
       ]);
       const admUser = admRows[0];
@@ -561,11 +561,11 @@ router.put('/', requireAuth, async (req, res) => {
     }
 
     // Ejecutar anulación
-    await db.query('UPDATE sales SET status = "cancelled", cancelled_at = NOW(), cancelled_by_name = ? WHERE id = ?', [
+    await db.query("UPDATE sales SET status = 'cancelled', cancelled_at = NOW(), cancelled_by_name = ? WHERE id = ?", [
       cancelledByName,
       id
     ]);
-    await db.query('UPDATE sale_lines SET status = "cancelled" WHERE sale_id = ?', [id]);
+    await db.query("UPDATE sale_lines SET status = 'cancelled' WHERE sale_id = ?", [id]);
 
     // Notificar anulación
     try {

@@ -3,7 +3,7 @@
 // Maneja el enrutamiento de pantallas y los proveedores de contexto
 // ============================================================
 import React, { useState } from 'react';
-import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image, Modal, ScrollView } from 'react-native';
+import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image, Modal, ScrollView, LogBox } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -13,6 +13,13 @@ import { CustomAlert } from './src/components/CustomAlert';
 import { api } from './src/services/apiService';
 import * as Notifications from 'expo-notifications';
 import { storage } from './src/services/storageService';
+
+// Ignorar advertencias sobre limitaciones de expo-notifications en Expo Go
+LogBox.ignoreLogs([
+  'expo-notifications',
+  '`expo-notifications` functionality is not fully supported in Expo Go',
+  'Android Push notifications (remote notifications) functionality provided by expo-notifications was removed'
+]);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

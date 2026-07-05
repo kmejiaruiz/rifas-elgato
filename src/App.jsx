@@ -24,6 +24,8 @@ import { LoginPage } from './pages/LoginPage';
 import { RootPanel } from './pages/RootPanel';
 import { DialogProvider } from './components/ui/DialogProvider';
 import { WinnerNotification, NotificationPermissionBanner } from './components/ui/WinnerNotification';
+import { OfflineSalesQueueModal } from './components/ui/OfflineSalesQueueModal';
+import { getOfflineSalesQueue } from './services/storageService';
 import {
   LayoutDashboard, Ticket, ClipboardList,
   Settings as SettingsIcon, Shield, LogOut, Wifi,
@@ -91,6 +93,18 @@ const AppShell = () => {
   const { isServerConnected, showOfflineModal, setShowOfflineModal } = useApp();
   const isAdmin = user?.role === 'admin';
 
+  const [offlineQueue, setOfflineQueue] = useState([]);
+  const [showQueueModal, setShowQueueModal] = useState(false);
+
+  useEffect(() => {
+    const checkQueue = () => {
+      setOfflineQueue(getOfflineSalesQueue());
+    };
+    checkQueue();
+    const interval = setInterval(checkQueue, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   const NAV_ITEMS = [
     { path: '/', label: 'Inicio', Icon: LayoutDashboard, exact: true },
     { path: '/sell', label: 'Vender', Icon: Ticket },
@@ -112,6 +126,33 @@ const AppShell = () => {
   return (
     <div className="app-shell">
       <PendingPaymentsAlert />
+      {offlineQueue.length > 0 && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
+          padding: '0.5rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.8rem',
+          color: '#fbbf24',
+          fontWeight: 600,
+          animation: 'slideDown 0.25s ease'
+        }}>
+          <span>⚠️ Tienes {offlineQueue.length} venta(s) pendientes por sincronizar en el servidor.</span>
+          <button 
+            className="btn btn-ghost" 
+            onClick={() => setShowQueueModal(true)}
+            style={{ 
+              padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: '#fbbf24', 
+              border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', 
+              background: 'rgba(245,158,11,0.05)', cursor: 'pointer' 
+            }}
+          >
+            Ver y Gestionar
+          </button>
+        </div>
+      )}
       {/* Navigation (Sidebar on PC, Bottom Nav on Mobile) */}
       <nav className="bottom-nav" role="navigation" aria-label="Navegación principal">
         {/* Brand — only visible on desktop sidebar */}
@@ -300,6 +341,7 @@ const AppShell = () => {
           animation: pulseNetwork 1.5s ease-in-out infinite;
         }
       `}</style>
+      <OfflineSalesQueueModal isOpen={showQueueModal} onClose={() => setShowQueueModal(false)} />
     </div>
   );
 };

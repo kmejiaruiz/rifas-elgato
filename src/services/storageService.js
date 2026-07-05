@@ -330,6 +330,7 @@ export const syncOfflineData = async (dispatch) => {
     } catch (err) {
       console.error('[Sync] Error al sincronizar venta:', err);
       // Se mantiene en la cola si es un error de conexión transitorio
+      item.error = err.message || 'Error de conexión';
       remainingSales.push(item);
     }
   }
@@ -386,3 +387,33 @@ export const syncOfflineData = async (dispatch) => {
     toast.success(`${syncedResultsCount} resultados sincronizados en el servidor.`, { duration: 5000 });
   }
 };
+
+// ─── Helpers para gestionar la cola de ventas offline ─────────────
+export const getOfflineSalesQueue = () => {
+  return JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
+};
+
+export const saveOfflineSalesQueue = (queue) => {
+  localStorage.setItem('offline_sales_queue', JSON.stringify(queue));
+};
+
+export const updateOfflineSale = (id, updatedData) => {
+  const queue = getOfflineSalesQueue();
+  const index = queue.findIndex(item => item.id === id);
+  if (index !== -1) {
+    queue[index].data = { ...queue[index].data, ...updatedData };
+    // Borrar el error previo al ser modificado por el usuario para reintentar
+    delete queue[index].error;
+    saveOfflineSalesQueue(queue);
+    return true;
+  }
+  return false;
+};
+
+export const deleteOfflineSale = (id) => {
+  const queue = getOfflineSalesQueue();
+  const filtered = queue.filter(item => item.id !== id);
+  saveOfflineSalesQueue(filtered);
+  return filtered;
+};
+

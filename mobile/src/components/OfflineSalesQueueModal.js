@@ -121,7 +121,7 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
               <Text style={styles.clientName}>Cliente: {data.comprador}</Text>
             ) : null}
           </View>
-          <Text style={styles.amount}>NIO {Number(data.monto || 0).toFixed(2)}</Text>
+          <Text style={styles.amount}>NIO {Number((data.jugadas || []).reduce((sum, j) => sum + parseFloat(j.monto || 0), 0)).toFixed(2)}</Text>
         </View>
 
         <View style={styles.jugadasBox}>

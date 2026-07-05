@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Edit2, X, Calendar, Clock, Save, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Trash2, Edit2, X, Calendar, Clock, Save, RefreshCw, AlertTriangle, ShieldAlert, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getOfflineSalesQueue, updateOfflineSale, deleteOfflineSale, syncOfflineData } from '../../services/storageService';
 import { LOTTERY_LIST } from '../../data/lotteryTypes';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../services/apiService';
 
 export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
   const { dispatch, isServerConnected } = useApp();
@@ -45,7 +46,6 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
     const item = queue.find(q => q.id === id);
     if (!item) return;
 
-    // Actualizar datos del boleto y de cada jugada individual
     const updatedJugadas = (item.data.jugadas || []).map(j => ({
       ...j,
       fecha: editDate,
@@ -64,12 +64,36 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
       const updatedQueue = getOfflineSalesQueue();
       setQueue(updatedQueue);
 
-      // Si el servidor está conectado, intentar sincronizar automáticamente
       if (isServerConnected) {
         triggerSync();
       }
     } else {
       toast.error('Error al actualizar el boleto.');
+    }
+  };
+
+  const handleForceSync = async (item) => {
+    if (!isServerConnected) {
+      toast.error('El servidor está desconectado.');
+      return;
+    }
+
+    const toastId = toast.loading('Forzando sincronización de boleto...');
+    try {
+      const payload = { ...item.data, bypassClosedLimit: true };
+      const res = await api.post('/sales', payload);
+      const sale = res.sales ? res.sales[0] : res.sale;
+
+      dispatch({ type: 'SYNC_SALE', payload: { tempId: item.id, realSale: sale } });
+
+      const updated = deleteOfflineSale(item.id);
+      setQueue(updated);
+      toast.success('Boleto sincronizado a la fuerza con éxito.', { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Error al sincronizar a la fuerza', { id: toastId });
+      updateOfflineSale(item.id, { error: err.message || 'Error en sincronización forzada' });
+      setQueue(getOfflineSalesQueue());
     }
   };
 
@@ -90,13 +114,11 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // Obtener nombre formateado del sorteo
   const getLotteryName = (lotteryId) => {
     const lot = LOTTERY_LIST.find(l => l.id === lotteryId);
     return lot ? lot.name : lotteryId;
   };
 
-  // Obtener horas válidas para el juego en edición
   const getValidHoursForLottery = (lotteryId) => {
     const lot = LOTTERY_LIST.find(l => l.id === lotteryId);
     return lot && lot.drawHours
@@ -150,6 +172,13 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
               const isEditing = editingId === item.id;
               const formattedDate = data.drawDate ? data.drawDate.split('-').reverse().join('/') : '';
 
+              // Lógica de cálculo de tiempo transcurrido desde el sorteo
+              const drawDateTimeStr = `${data.drawDate || ''}T${data.horaSorteo || '12:00'}:00-06:00`;
+              const drawTime = new Date(drawDateTimeStr).getTime();
+              const currentTime = Date.now();
+              const isWithin24h = (currentTime - drawTime) <= 24 * 60 * 60 * 1000;
+              const hasPassed = currentTime >= drawTime;
+
               return (
                 <div key={item.id} style={{
                   border: '1px solid var(--border)', borderRadius: '16px',
@@ -169,7 +198,7 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
                       )}
                     </div>
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f1f5f9' }}>
-                      NIO {Number(data.monto || 0).toFixed(2)}
+                      NIO {Number((data.jugadas || []).reduce((sum, j) => sum + parseFloat(j.monto || 0), 0)).toFixed(2)}
                     </span>
                   </div>
 
@@ -178,7 +207,7 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
                     <strong>Números:</strong> {(data.jugadas || []).map(j => `${j.numero} (x${Number(j.monto).toFixed(0)})`).join(', ')}
                   </div>
 
-                  {/* Sorteo actual y error */}
+                  {/* Sorteo actual */}
                   <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.76rem', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)' }}>
                       <Calendar size={12} />
@@ -189,6 +218,24 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
                       <span>{data.horaSorteo}</span>
                     </div>
                   </div>
+
+                  {/* Estado de tiempo de sorteo */}
+                  {hasPassed && (
+                    <div style={{
+                      display: 'flex', gap: '0.4rem', alignItems: 'center',
+                      background: isWithin24h ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)',
+                      border: `1px solid ${isWithin24h ? 'rgba(245,158,11,0.18)' : 'rgba(239,68,68,0.18)'}`,
+                      borderRadius: '8px', padding: '0.4rem 0.75rem', fontSize: '0.72rem',
+                      color: isWithin24h ? '#fbbf24' : '#f87171', fontWeight: 600
+                    }}>
+                      <ShieldAlert size={14} style={{ flexShrink: 0 }} />
+                      <span>
+                        {isWithin24h 
+                          ? '⚠️ Sorteo cerrado. Forzar sincronización disponible (Menos de 24h).' 
+                          : '🚫 Excedió el límite de 24h. Obligatorio reprogramar sorteo o descartar.'}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Alerta de Error */}
                   {item.error && !isEditing && (
@@ -257,10 +304,16 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
                         <Trash2 size={12} />
                         Descartar
                       </button>
-                      <button className="btn btn-primary" onClick={() => startEditing(item)} style={{ padding: '0.3rem 0.75rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <button className="btn btn-ghost" onClick={() => startEditing(item)} style={{ padding: '0.3rem 0.75rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-secondary)' }}>
                         <Edit2 size={12} />
                         Cambiar Sorteo
                       </button>
+                      {hasPassed && isWithin24h && (
+                        <button className="btn btn-primary" onClick={() => handleForceSync(item)} disabled={!isServerConnected} style={{ padding: '0.3rem 0.75rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Check size={12} />
+                          Forzar Sincro
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -282,8 +335,8 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
               style={{
                 padding: '0.6rem 1.2rem', fontSize: '0.8rem',
                 display: 'flex', alignItems: 'center', gap: '0.4rem',
-                background: isServerConnected ? 'var(--primary)' : 'rgba(156,163,175,0.1)',
-                cursor: isServerConnected && !syncing ? 'pointer' : 'not-allowed'
+                cursor: isServerConnected && !syncing ? 'pointer' : 'not-allowed',
+                opacity: isServerConnected && !syncing ? 1 : 0.4
               }}
             >
               <RefreshCw size={14} className={syncing ? "spin" : ""} />

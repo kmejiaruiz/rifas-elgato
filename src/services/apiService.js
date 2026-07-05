@@ -10,8 +10,16 @@ export const setToken   = (t) => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 // Returns the base origin for constructing asset URLs (e.g. /uploads/carousel_xxx.jpg)
-export const getApiUrl  = () => window.location.origin;
+export const getApiUrl  = () => {
+  const base = getBaseApiUrl();
+  if (base.startsWith('http')) return base;
+  return window.location.origin + base;
+};
 
+
+export const getBaseApiUrl = () => {
+  return import.meta.env.DEV ? '/api' : 'https://rifas-elgato.vercel.app/api';
+};
 
 const request = async (method, path, body = null) => {
   const headers = { 'Content-Type': 'application/json' };
@@ -28,7 +36,7 @@ const request = async (method, path, body = null) => {
 
   let res;
   try {
-    const base = import.meta.env.DEV ? '/api' : 'https://rifas-elgato.vercel.app/api';
+    const base = getBaseApiUrl();
     let url;
     if (base.startsWith('http')) {
       const urlObj = new URL(base);

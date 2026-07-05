@@ -1,4 +1,4 @@
-﻿// ─── Página: Configuración ────────────────────────────────────
+// ─── Página: Configuración ────────────────────────────────────
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PrinterConnect } from '../components/printer/PrinterStatus';
@@ -197,7 +197,7 @@ export const Settings = () => {
         formData.append('image', fileToUpload);
 
         toast.loading('Subiendo imagen recortada...', { id: 'upload' });
-        const { getToken } = await import('../services/apiService');
+        const { getToken, getBaseApiUrl } = await import('../services/apiService');
         const token = getToken();
         const headers = {};
         if (token) {
@@ -205,8 +205,14 @@ export const Settings = () => {
           headers['X-Auth-Token'] = token;
         }
         
-        const base = import.meta.env.DEV ? '/api' : `${import.meta.env.BASE_URL || '/'}api`;
-        const url = `${base}/upload`.replace(/\/+/g, '/');
+        const base = getBaseApiUrl();
+        let url;
+        if (base.startsWith('http')) {
+          const urlObj = new URL(base);
+          url = `${urlObj.origin}${`${urlObj.pathname}/upload`.replace(/\/+/g, '/')}`;
+        } else {
+          url = `${base}/upload`.replace(/\/+/g, '/');
+        }
         
         const res = await fetch(url, {
           method: 'POST',

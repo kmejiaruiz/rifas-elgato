@@ -15,6 +15,7 @@ import {
 import toast from 'react-hot-toast';
 import { LOTTERY_LIST, setDynamicLotteries } from '../data/lotteryTypes';
 import { getGameConfigs } from '../services/gameService';
+import { getBaseApiUrl } from '../services/apiService';
 
 // ─── Estado inicial ──────────────────────────────────────────
 const initialState = {
@@ -83,8 +84,15 @@ export const AppProvider = ({ children }) => {
 
     const ping = async () => {
       try {
-        // Hacemos fetch simple a /api/health para verificar conexión
-        const res = await fetch('/api/health').catch(() => { throw new Error('Offline'); });
+        const base = getBaseApiUrl();
+        let url;
+        if (base.startsWith('http')) {
+          const urlObj = new URL(base);
+          url = `${urlObj.origin}${`${urlObj.pathname}/health`.replace(/\/+/g, '/')}`;
+        } else {
+          url = `${base}/health`.replace(/\/+/g, '/');
+        }
+        const res = await fetch(url).catch(() => { throw new Error('Offline'); });
         if (res && res.ok) {
           setIsServerConnected(true);
         } else {

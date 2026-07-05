@@ -42,7 +42,7 @@ async function fillMultiHours(db, sales) {
 router.get('/', requireAuth, async (req, res) => {
   const user = req.user;
   const db = await getDB();
-  const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Managua' }); // YYYY-MM-DD local in Managua
 
   try {
     // 1. Resumen diario (summary)
@@ -232,7 +232,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     let drawDate = String(b.drawDate || '').trim();
     if (!drawDate) {
-      drawDate = new Date().toLocaleDateString('sv-SE');
+      drawDate = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Managua' });
       if (lotteryId !== 'fechea') {
         for (const j of jugadas) {
           if (j.fecha) {
@@ -243,8 +243,8 @@ router.post('/', requireAuth, async (req, res) => {
       }
     }
 
-    // Validar hora de cierre del sorteo
-    const drawDateTimeStr = `${drawDate} ${horaSorteo}:00`;
+    // Validar hora de cierre del sorteo usando el offset de Nicaragua (UTC-6)
+    const drawDateTimeStr = `${drawDate}T${horaSorteo}:00-06:00`;
     const drawTime = new Date(drawDateTimeStr).getTime();
     const currentTime = Date.now();
     const closeLimitTime = drawTime - (drawCloseMinutes * 60 * 1000);
@@ -360,8 +360,8 @@ router.post('/', requireAuth, async (req, res) => {
     const createdIds = [];
 
     for (const hora of horasToProcess) {
-      // Validar si la hora ya cerró
-      const drawDateTimeStr2 = `${drawDate} ${hora}:00`;
+      // Validar si la hora ya cerró usando el offset de Nicaragua (UTC-6)
+      const drawDateTimeStr2 = `${drawDate}T${hora}:00-06:00`;
       const drawTime2 = new Date(drawDateTimeStr2).getTime();
       const closeLimitTime2 = drawTime2 - (drawCloseMinutes * 60 * 1000);
 
@@ -517,7 +517,7 @@ router.put('/', requireAuth, async (req, res) => {
     let blockedAnnulment = false;
     let hasAnnouncedDraw = false;
 
-    const todayStr = new Date().toLocaleDateString('sv-SE');
+    const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Managua' });
 
     for (const line of saleLines) {
       const fechaSorteo = line.fecha || todayStr;

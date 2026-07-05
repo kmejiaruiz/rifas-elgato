@@ -98,7 +98,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
   const b = req.body;
   const lotteryId = String(b.lotteryId || '').trim();
-  const todayStr = new Date().toLocaleDateString('sv-SE');
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Managua' });
   const fechaSorteo = String(b.fechaSorteo || todayStr).trim();
   const numeroGanador = String(b.numeroGanador !== undefined ? b.numeroGanador : '').trim();
   const horaSorteo = String(b.horaSorteo || '12:00').trim();

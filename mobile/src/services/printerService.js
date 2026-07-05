@@ -2,7 +2,7 @@
 // printerService — Formateador y Servicio de Impresión Móvil
 // Compatible con impresoras térmicas Bluetooth (Classic + BLE) vía Web Bluetooth API
 // ============================================================
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import { getLotteryById, formatLotteryNumber } from '../data/lotteryTypes';
 import { formatHourAmPm } from './gameService';
 
@@ -229,11 +229,45 @@ const uint8ToBase64 = (arr) => {
   return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(arr).toString('base64');
 };
 
+// Helper para solicitar permisos de Bluetooth en Android de forma asíncrona
+const requestBluetoothPermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const apiLevel = parseInt(Platform.Version, 10);
+      if (apiLevel >= 31) {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+        return (
+          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED
+        );
+      } else {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } catch (err) {
+      console.warn('[PrinterService] Error al solicitar permisos de Bluetooth:', err);
+      return false;
+    }
+  }
+  return true;
+};
+
 // ─── Conexión Bluetooth Web API y Nativo ───────────────────────
 export const connectPrinter = async () => {
   if (Platform.OS !== 'web') {
     if (NativeBLEPrinter) {
       try {
+        const hasPermission = await requestBluetoothPermission();
+        if (!hasPermission) {
+          throw new Error('Permisos de Bluetooth denegados. Actívelos en los ajustes del teléfono.');
+        }
+
         await NativeBLEPrinter.init();
         const devices = await NativeBLEPrinter.getDeviceList();
         if (devices && devices.length > 0) {

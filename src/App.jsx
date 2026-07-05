@@ -126,33 +126,7 @@ const AppShell = () => {
   return (
     <div className="app-shell">
       <PendingPaymentsAlert />
-      {offlineQueue.length > 0 && (
-        <div style={{
-          background: 'rgba(245, 158, 11, 0.12)',
-          borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
-          padding: '0.5rem 1rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '0.8rem',
-          color: '#fbbf24',
-          fontWeight: 600,
-          animation: 'slideDown 0.25s ease'
-        }}>
-          <span>⚠️ Tienes {offlineQueue.length} venta(s) pendientes por sincronizar en el servidor.</span>
-          <button 
-            className="btn btn-ghost" 
-            onClick={() => setShowQueueModal(true)}
-            style={{ 
-              padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: '#fbbf24', 
-              border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', 
-              background: 'rgba(245,158,11,0.05)', cursor: 'pointer' 
-            }}
-          >
-            Ver y Gestionar
-          </button>
-        </div>
-      )}
+      {/* Banner de boletos pendientes movido dentro de main-wrapper para evitar romper el layout */}
       {/* Navigation (Sidebar on PC, Bottom Nav on Mobile) */}
       <nav className="bottom-nav" role="navigation" aria-label="Navegación principal">
         {/* Brand — only visible on desktop sidebar */}
@@ -181,6 +155,33 @@ const AppShell = () => {
 
       {/* Main Content Wrapper */}
       <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+        {offlineQueue.length > 0 && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.12)',
+            borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
+            padding: '0.5rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.8rem',
+            color: '#fbbf24',
+            fontWeight: 600,
+            animation: 'slideDown 0.25s ease'
+          }}>
+            <span>⚠️ Tienes {offlineQueue.length} venta(s) pendientes por sincronizar en el servidor.</span>
+            <button 
+              className="btn btn-ghost" 
+              onClick={() => setShowQueueModal(true)}
+              style={{ 
+                padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: '#fbbf24', 
+                border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', 
+                background: 'rgba(245,158,11,0.05)', cursor: 'pointer' 
+              }}
+            >
+              Ver y Gestionar
+            </button>
+          </div>
+        )}
         {/* Header */}
         <header className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>

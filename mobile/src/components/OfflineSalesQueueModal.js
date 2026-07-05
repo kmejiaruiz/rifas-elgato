@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, Modal, FlatList,
-  TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView
+  TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView, Platform
 } from 'react-native';
 import { Trash2, Edit2, X, Calendar, Clock, Save, RefreshCw, AlertTriangle, ShieldAlert, Check } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../context/AppContext';
 import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
 import { LOTTERY_LIST } from '../data/lotteryTypes';
@@ -18,6 +19,10 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
   const [editDate, setEditDate] = useState('');
   const [editHour, setEditHour] = useState('');
   const [syncing, setSyncing] = useState(false);
+  
+  // Date Picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerVal, setDatePickerVal] = useState(new Date());
 
   const handleDiscard = (id) => {
     Alert.alert(
@@ -38,19 +43,26 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
 
   const startEditing = (item) => {
     setEditingId(item.id);
-    setEditDate(item.data.drawDate || new Date().toLocaleDateString('sv-SE'));
+    const itemDate = item.data.drawDate || new Date().toLocaleDateString('sv-SE');
+    setEditDate(itemDate);
     setEditHour(item.data.horaSorteo || '12:00');
+    
+    // Parse date for native picker
+    try {
+      const parts = itemDate.split('-');
+      if (parts.length === 3) {
+        setDatePickerVal(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+      } else {
+        setDatePickerVal(new Date());
+      }
+    } catch {
+      setDatePickerVal(new Date());
+    }
   };
 
   const handleSaveEdit = async (id) => {
     if (!editDate || !editHour) {
-      Alert.alert('Error', 'Por favor ingresa una fecha y hora válidas.');
-      return;
-    }
-
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(editDate)) {
-      Alert.alert('Formato Inválido', 'El formato de fecha debe ser AAAA-MM-DD.');
+      Alert.alert('Error', 'Por favor selecciona una fecha y hora válidas.');
       return;
     }
 
@@ -105,6 +117,7 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
     const data = item.data || {};
     const isEditing = editingId === item.id;
     const formattedDate = data.drawDate ? data.drawDate.split('-').reverse().join('/') : '';
+    const ticketTotal = (data.jugadas || []).reduce((sum, j) => sum + parseFloat(j.monto || 0), 0);
 
     const drawDateTimeStr = `${data.drawDate || ''}T${data.horaSorteo || '12:00'}:00-06:00`;
     const drawTime = new Date(drawDateTimeStr).getTime();
@@ -115,13 +128,13 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.lotteryName}>{getLotteryName(data.lotteryId)}</Text>
             {data.comprador ? (
               <Text style={styles.clientName}>Cliente: {data.comprador}</Text>
             ) : null}
           </View>
-          <Text style={styles.amount}>NIO {Number((data.jugadas || []).reduce((sum, j) => sum + parseFloat(j.monto || 0), 0)).toFixed(2)}</Text>
+          <Text style={styles.amount}>NIO {ticketTotal.toFixed(2)}</Text>
         </View>
 
         <View style={styles.jugadasBox}>
@@ -169,17 +182,39 @@ export const OfflineSalesQueueModal = ({ isOpen, onClose }) => {
           <View style={styles.editBox}>
             <Text style={styles.editTitle}>Reprogramar sorteo:</Text>
             
-            <Text style={styles.label}>Nueva Fecha (AAAA-MM-DD)</Text>
-            <TextInput
-              style={styles.input}
-              value={editDate}
-              onChangeText={setEditDate}
-              placeholder="Ej: 2026-07-05"
-              placeholderTextColor="rgba(255,255,255,0.2)"
-            />
+            <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginBottom: 8 }}>
+              Monto del boleto: <Text style={{ color: '#fff', fontWeight: '800' }}>NIO {ticketTotal.toFixed(2)}</Text>
+            </Text>
+
+            <Text style={styles.label}>Nueva Fecha</Text>
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              style={styles.dateSelectorBtn}
+              activeOpacity={0.7}
+            >
+              <Calendar size={14} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                {editDate ? editDate.split('-').reverse().join('/') : 'Seleccionar Fecha'}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={datePickerVal}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setDatePickerVal(selectedDate);
+                    setEditDate(selectedDate.toLocaleDateString('sv-SE'));
+                  }
+                }}
+              />
+            )}
 
             <Text style={styles.label}>Nueva Hora (Selecciona de la lista)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 4 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 6 }}>
               {getValidHoursForLottery(data.lotteryId).map(h => (
                 <TouchableOpacity
                   key={h}
@@ -473,7 +508,7 @@ const styles = StyleSheet.create({
   editBox: {
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: RADIUS.md,
-    padding: 10,
+    padding: 12,
     marginTop: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -488,18 +523,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.textMuted,
     marginTop: 4,
+    marginBottom: 4,
   },
-  input: {
+  dateSelectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.2)',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.sm,
-    color: '#fff',
-    fontSize: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   hourPill: {
     paddingVertical: 5,

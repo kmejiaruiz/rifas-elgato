@@ -284,7 +284,9 @@ export const connectPrinter = async () => {
         }
       } catch (err) {
         _connected = false;
-        throw new Error(`Error de Bluetooth nativo: ${err.message}`);
+        console.warn('[PrinterService] Error de Bluetooth nativo:', err);
+        const errMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Error de inicialización nativa');
+        throw new Error(`Error de Bluetooth nativo: ${errMsg}`);
       }
     } else {
       throw new Error(

@@ -1,5 +1,5 @@
 // ─── Página: Configuración ────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PrinterConnect } from '../components/printer/PrinterStatus';
 import { Settings as SettingsIcon, Store, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useDialog } from '../components/ui/DialogProvider';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../services/apiService';
+import { getOfflineSalesQueue } from '../services/storageService';
 
 export const Settings = () => {
   const { settings, updateSettings, installPwa } = useApp();
@@ -23,6 +24,17 @@ export const Settings = () => {
   const [offsetY, setOffsetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const [offlineCount, setOfflineCount] = useState(0);
+
+  useEffect(() => {
+    const check = () => {
+      setOfflineCount(getOfflineSalesQueue().length);
+    };
+    check();
+    const interval = setInterval(check, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const buildImageUrl = (url) => {
     if (!url) return url;
@@ -45,6 +57,20 @@ export const Settings = () => {
         {/* Impresora Bluetooth */}
         <p className="section-title">Impresora Bluetooth</p>
         <PrinterConnect />
+
+        <div className="divider" style={{ margin: '1.5rem 0' }} />
+        <p className="section-title">Soporte Sin Conexión</p>
+        <div className="card">
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Tienes <strong style={{ color: 'var(--accent-light)' }}>{offlineCount} boleto(s)</strong> pendientes de sincronización en este dispositivo.
+          </p>
+          <button
+            className="btn btn-secondary btn-full"
+            onClick={() => window.dispatchEvent(new CustomEvent('rifas:open-offline-modal'))}
+          >
+            Gestionar Cola Offline
+          </button>
+        </div>
 
         {installPwa && (
           <>
@@ -520,6 +546,20 @@ export const Settings = () => {
           </div>
         </>
       )}
+
+      {/* Soporte Sin Conexión */}
+      <p className="section-title">Soporte Sin Conexión</p>
+      <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+          Tienes <strong style={{ color: 'var(--accent-light)' }}>{offlineCount} boleto(s)</strong> pendientes de sincronización en este dispositivo.
+        </p>
+        <button
+          className="btn btn-secondary btn-full"
+          onClick={() => window.dispatchEvent(new CustomEvent('rifas:open-offline-modal'))}
+        >
+          Gestionar Cola Offline
+        </button>
+      </div>
 
       {/* Peligro */}
       <div style={{ marginTop: '1rem' }}>

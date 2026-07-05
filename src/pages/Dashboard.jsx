@@ -149,12 +149,62 @@ export const Dashboard = () => {
     <div className="page-content dashboard-page-content">
 
       {/* ── Hero Banner ── */}
-      <div className="dashboard-hero">
-        <div className="dashboard-hero-left">
+      <div className="dashboard-hero" style={{ alignItems: 'center' }}>
+        <div className="dashboard-hero-left" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <span className="dashboard-hero-date">{today}</span>
-          <h1 className="dashboard-hero-title">{settings.businessName}</h1>
-          <p className="dashboard-hero-subtitle">Resumen del día</p>
+          <h1 className="dashboard-hero-title" style={{ margin: 0 }}>{settings.businessName}</h1>
+          <p className="dashboard-hero-subtitle" style={{ margin: 0 }}>Resumen del día</p>
         </div>
+
+        {results.length > 0 && (
+          <div 
+            className="dashboard-results-hero-card"
+            style={{
+              flex: '0 1 360px',
+              minWidth: '280px',
+              maxHeight: '100px',
+              overflowY: 'auto',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              borderRadius: '12px',
+              padding: '0.5rem 0.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.2rem', marginBottom: '0.15rem' }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Últimos Resultados</span>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Desliza para ver más</span>
+            </div>
+            {results.slice(0, 10).map((r) => {
+              const lottery = lotteries.find((x) => x.id === r.lotteryId) || getLotteryById(r.lotteryId);
+              const displayNum = r.lotteryId === 'fechea' ? r.numeroGanador : `#${r.numeroGanador}`;
+              return (
+                <div 
+                  key={r.id} 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '0.2rem 0.4rem',
+                    background: 'rgba(255,255,255,0.01)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255,255,255,0.02)'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff' }}>{lottery?.name || r.lotteryId}</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Sorteo: {r.fechaSorteo} ({r.horaSorteo})</span>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent-light)', background: 'rgba(167,139,250,0.1)', padding: '0.1rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.15)' }}>
+                    {displayNum}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* PWA Install Banner — full width */}
@@ -396,42 +446,7 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Resultados Recientes */}
-          {results.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p className="section-title" style={{ marginTop: 0 }}>Resultados Recientes</p>
-              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', padding: '1.25rem' }}>
-                {results.slice(0, 5).map((r) => {
-                  const lottery = lotteries.find((x) => x.id === r.lotteryId) || getLotteryById(r.lotteryId);
-                  const displayNum = r.lotteryId === 'fechea' ? r.numeroGanador : `#${r.numeroGanador}`;
-                  return (
-                    <div 
-                      key={r.id} 
-                      style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        padding: '0.5rem 0.6rem', 
-                        background: 'rgba(255,255,255,0.02)', 
-                        borderRadius: '8px', 
-                        border: '1px solid rgba(255,255,255,0.04)' 
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div>
-                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>{lottery?.name || r.lotteryId}</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Sorteo: {r.fechaSorteo} ({r.horaSorteo})</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent-light)', background: 'rgba(167,139,250,0.1)', padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(167,139,250,0.2)' }}>
-                        {displayNum}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Resultados Recientes movido al hero banner de arriba */}
 
         </div>
 

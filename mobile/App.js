@@ -59,7 +59,7 @@ import { OfflineSalesQueueModal } from './src/components/OfflineSalesQueueModal'
 
 const AppContent = () => {
   const { user, loading: authLoading, logout, updateUser } = useAuth();
-  const { loadAllData, settings, lotteries, offlineQueue, isDarkMode, toggleTheme } = useApp();
+  const { loadAllData, settings, lotteries, offlineQueue, isDarkMode, toggleTheme, isServerConnected } = useApp();
   const activeColors = getThemeColors(isDarkMode);
   const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' | 'sell' | 'history' | 'settings' | 'admin'

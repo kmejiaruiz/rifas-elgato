@@ -9,6 +9,7 @@ import { TrendingUp, Ticket, XCircle, Printer, ChevronLeft, ChevronRight } from 
 import { useNavigate } from 'react-router-dom';
 import { parseDate } from '../utils/dateUtils';
 import { getApiUrl } from '../services/apiService';
+import { getResults } from '../services/storageService';
 
 export const Dashboard = () => {
   const { dailySummary, loading, settings, sales, lotteries, installPwa } = useApp();
@@ -19,6 +20,22 @@ export const Dashboard = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const animTimeout = useRef(null);
+
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const list = await getResults();
+        setResults(list || []);
+      } catch (err) {
+        console.warn('Error loading results in dashboard:', err);
+      }
+    };
+    fetchResults();
+    const interval = setInterval(fetchResults, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const dismissed = localStorage.getItem('pwa_install_dismissed') === 'true';
@@ -378,6 +395,44 @@ export const Dashboard = () => {
               ))}
             </div>
           </div>
+
+          {/* Resultados Recientes */}
+          {results.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="section-title" style={{ marginTop: 0 }}>Resultados Recientes</p>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', padding: '1.25rem' }}>
+                {results.slice(0, 5).map((r) => {
+                  const lottery = lotteries.find((x) => x.id === r.lotteryId) || getLotteryById(r.lotteryId);
+                  const displayNum = r.lotteryId === 'fechea' ? r.numeroGanador : `#${r.numeroGanador}`;
+                  return (
+                    <div 
+                      key={r.id} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '0.5rem 0.6rem', 
+                        background: 'rgba(255,255,255,0.02)', 
+                        borderRadius: '8px', 
+                        border: '1px solid rgba(255,255,255,0.04)' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>{lottery?.emoji || '📢'}</span>
+                        <div>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>{lottery?.name || r.lotteryId}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Sorteo: {r.fechaSorteo} ({r.horaSorteo})</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent-light)', background: 'rgba(167,139,250,0.1)', padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(167,139,250,0.2)' }}>
+                        {displayNum}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
 

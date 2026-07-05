@@ -54,6 +54,18 @@ async function getDB() {
   // Inicializar esquema
   await initSchema(pool);
 
+  // Consulta keep-alive cada 2 horas para mantener activa la base de datos (evita suspensión por inactividad en Aiven)
+  setInterval(async () => {
+    try {
+      if (pool) {
+        await pool.query('SELECT 1');
+        console.log('[DB Keep-Alive] Conexión activa. Ping exitoso a MySQL.');
+      }
+    } catch (err) {
+      console.error('[DB Keep-Alive] Error en ping de inactividad:', err.message);
+    }
+  }, 2 * 60 * 60 * 1000);
+
   return pool;
 }
 

@@ -3,12 +3,12 @@
 // Maneja el enrutamiento de pantallas y los proveedores de contexto
 // ============================================================
 import React, { useState } from 'react';
-import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image } from 'react-native';
+import { StatusBar, StyleSheet, View, ActivityIndicator, Text, Platform, TouchableOpacity, Alert, Image, Modal, ScrollView } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { COLORS } from './src/styles/theme';
-import { Home, Ticket, History, Settings, ShieldAlert } from 'lucide-react-native';
+import { Home, Ticket, History, Settings, ShieldAlert, Trophy } from 'lucide-react-native';
 import { CustomAlert } from './src/components/CustomAlert';
 import { api } from './src/services/apiService';
 import * as Notifications from 'expo-notifications';
@@ -55,6 +55,7 @@ const AppContent = () => {
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' | 'sell' | 'history' | 'settings' | 'admin'
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [skippedPaymentIds, setSkippedPaymentIds] = useState([]);
+  const [winnerAlert, setWinnerAlert] = useState(null);
 
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -392,6 +393,9 @@ const AppContent = () => {
           if (seenWinnerIds.length === 0) {
             await storage.set(seenKey, winners.map(w => `${w.resultId}-${w.lineId}`));
           } else {
+            // Trigger in-app Winner Modal
+            setWinnerAlert(newWinners);
+
             for (const w of newWinners) {
               const displayNum = w.lotteryId === 'fechea' ? w.numeroGanador : `#${w.numeroGanador || w.numero}`;
               try {
@@ -712,6 +716,41 @@ const AppContent = () => {
         </View>
       )}
 
+      {/* Modal de Ganador(es) para Vendedor */}
+      <Modal visible={!!winnerAlert} transparent animationType="slide" onRequestClose={() => setWinnerAlert(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.winnerCard}>
+            <View style={styles.trophyWrapper}>
+              <Trophy size={44} color="#fbbf24" />
+            </View>
+            <Text style={styles.winnerTitle}>¡Boleto Ganador!</Text>
+            <Text style={styles.winnerSubtitle}>Felicidades, has vendido un boleto premiado:</Text>
+            
+            <ScrollView style={{ maxHeight: 220, width: '100%', marginVertical: 12 }} contentContainerStyle={{ paddingBottom: 8 }}>
+              {winnerAlert && winnerAlert.map((w, idx) => {
+                const displayNum = w.lotteryId === 'fechea' ? w.numeroGanador : `#${w.numeroGanador || w.numero}`;
+                return (
+                  <View key={idx} style={styles.winnerItem}>
+                    <Text style={styles.winnerLottery}>{w.lotteryName || w.lotteryId}</Text>
+                    <Text style={styles.winnerDetails}>Número: <Text style={{ fontWeight: '800', color: '#fff' }}>{displayNum}</Text></Text>
+                    {w.comprador ? <Text style={styles.winnerDetails}>Cliente: {w.comprador}</Text> : null}
+                    <Text style={styles.winnerPrize}>Premio: NIO {parseFloat(w.prize || 0).toFixed(2)}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.winnerCloseBtn} 
+              onPress={() => setWinnerAlert(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.winnerCloseBtnText}>¡Entendido!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -839,5 +878,95 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontWeight: '700',
     letterSpacing: 1.5,
+  },
+  // Winner Alert Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 9, 21, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  winnerCard: {
+    backgroundColor: '#111827',
+    borderWidth: 1.5,
+    borderColor: '#fbbf24',
+    borderRadius: 24,
+    padding: 22,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  trophyWrapper: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  winnerTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#fbbf24',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  winnerSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  winnerItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    width: '100%',
+  },
+  winnerLottery: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primaryLight,
+    marginBottom: 2,
+  },
+  winnerDetails: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  winnerPrize: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#34d399',
+    marginTop: 4,
+  },
+  winnerCloseBtn: {
+    backgroundColor: '#fbbf24',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 99,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  winnerCloseBtnText: {
+    color: '#000',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

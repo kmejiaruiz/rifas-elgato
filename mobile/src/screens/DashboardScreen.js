@@ -273,7 +273,6 @@ export const DashboardScreen = ({ onNavigate }) => {
                   ]}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Text style={{ fontSize: 18 }}>{lottery?.emoji || '📢'}</Text>
                     <View>
                       <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{lottery?.name || r.lotteryId}</Text>
                       <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>{r.fechaSorteo} ({r.horaSorteo})</Text>

@@ -418,7 +418,6 @@ export const Dashboard = () => {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>{lottery?.emoji || '📢'}</span>
                         <div>
                           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>{lottery?.name || r.lotteryId}</div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Sorteo: {r.fechaSorteo} ({r.horaSorteo})</div>

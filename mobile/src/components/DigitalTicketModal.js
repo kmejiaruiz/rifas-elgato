@@ -285,6 +285,10 @@ export const DigitalTicketModal = ({ visible, sale, settings, onClose }) => {
                 <Text style={{ fontSize: 11, color: isDigital ? 'rgba(255,255,255,0.4)' : '#6b7280', fontFamily: isDigital ? undefined : (Platform.OS === 'ios' ? 'Courier' : 'monospace') }}>Vendedor:</Text>
                 <Text style={{ fontSize: 11, fontWeight: '800', color: isDigital ? '#fff' : '#000', fontFamily: isDigital ? undefined : (Platform.OS === 'ios' ? 'Courier' : 'monospace') }}>{sale.sellerName || sale.seller_name || 'Vendedor'}</Text>
               </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 11, color: isDigital ? 'rgba(255,255,255,0.4)' : '#6b7280', fontFamily: isDigital ? undefined : (Platform.OS === 'ios' ? 'Courier' : 'monospace') }}>Cliente:</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: isDigital ? '#fff' : '#000', fontFamily: isDigital ? undefined : (Platform.OS === 'ios' ? 'Courier' : 'monospace') }}>{sale.comprador || '—'}</Text>
+              </View>
             </View>
 
             {/* Dashed Line Divider */}

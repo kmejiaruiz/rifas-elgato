@@ -131,9 +131,7 @@ const buildTicketBytes = (sale, settings) => {
   if (drawHoursText) {
     push(...paddedLine('Sorteo Hora:', drawHoursText));
   }
-  if (sale.comprador) {
-    push(...paddedLine('Comprador:', sale.comprador));
-  }
+  push(...paddedLine('Cliente:', sale.comprador || '—'));
   push(...divider());
 
   // ─ Jugadas ─
@@ -418,10 +416,8 @@ export const formatTicketText = (sale, settings) => {
   const drawHoursText = getDrawHoursText(sale);
   const game = getLotteryById(sale.lotteryId || sale.lottery_id) || {};
   lines.push(formatRowBetween(`Sorteo: ${game.name || 'Rifa'}`, drawHoursText ? `Hora: ${drawHoursText}` : ''));
-  if (sale.comprador) {
-    lines.push(formatRowBetween(`Cliente: ${sale.comprador}`, ''));
-  }
-  lines.push('=').repeat(DOTS_WIDTH_48);
+  lines.push(formatRowBetween(`Cliente: ${sale.comprador || '—'}`, ''));
+  lines.push('='.repeat(DOTS_WIDTH_48));
 
   // Lista jugadas
   const saleLines = sale.lines || [];

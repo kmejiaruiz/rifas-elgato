@@ -280,9 +280,7 @@ const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, sele
           <View style={styles.handle} />
           <Text style={styles.confirmTitle}>Confirmar Venta</Text>
 
-          {comprador ? (
-            <Text style={styles.confirmMeta}>Comprador: <Text style={{ color: '#fff', fontWeight: '700' }}>{comprador}</Text></Text>
-          ) : null}
+          <Text style={styles.confirmMeta}>Comprador: <Text style={{ color: '#fff', fontWeight: '700' }}>{comprador || '—'}</Text></Text>
           <Text style={styles.confirmMeta}>
             Fecha: <Text style={{ color: '#fff', fontWeight: '700' }}>{formatDrawDate(selectedDate)}</Text>
             {'  ·  '}
@@ -416,9 +414,7 @@ const generateTicketText = (sale, settings, lottery) => {
   if (sale.horaSorteo || sale.hora_sorteo) {
     list.push(`Sorteo Hora: ${formatHourAmPm(sale.horaSorteo || sale.hora_sorteo)}`);
   }
-  if (sale.comprador) {
-    list.push(`Comprador: ${sale.comprador}`);
-  }
+  list.push(`Comprador: ${sale.comprador || '—'}`);
   list.push(`Vendedor: ${sale.sellerName || 'Vendedor'}`);
   list.push('--------------------------------');
 
@@ -482,9 +478,7 @@ const generateWhatsAppText = (sale, settings, lottery) => {
     `*Fecha Sorteo:* ${formatDrawDate(sale.lines?.[0]?.fecha || sale.drawDate)}`,
     `*Vendedor:* ${sale.sellerName || 'Vendedor'}`,
   ];
-  if (sale.comprador) {
-    list.push(`*Cliente:* ${sale.comprador}`);
-  }
+  list.push(`*Cliente:* ${sale.comprador || '—'}`);
   list.push(`━━━━━━━━━━━━━━━━━━━━━\n`);
 
   if (lines.length > 10) {

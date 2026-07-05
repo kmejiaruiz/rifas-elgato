@@ -16,7 +16,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOWS, getThemeColors } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { FormInput } from '../components/FormInput';
 import { api } from '../services/apiService';
@@ -2285,7 +2285,8 @@ const SalariesTab = () => {
 
 // ─── Pantalla principal ───────────────────────────────────────
 export const AdminPanelScreen = ({ onNavigate }) => {
-  const { lotteries, loadAllData } = useApp();
+  const { lotteries, loadAllData, isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [activeTab, setActiveTab] = useState('games');
 
   const renderTab = () => {
@@ -2304,33 +2305,46 @@ export const AdminPanelScreen = ({ onNavigate }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: activeColors.bgBase }]}>
         {/* NavBar */}
-        <View style={styles.navBar}>
+        <View style={[styles.navBar, { 
+          backgroundColor: isDarkMode ? '#111827' : '#ffffff', 
+          borderBottomColor: activeColors.border 
+        }]}>
           <TouchableOpacity onPress={() => onNavigate('dashboard')} style={styles.backBtn} activeOpacity={0.7}>
-            <ChevronLeft size={24} color="#fff" />
-            <Text style={styles.navTitle}>Panel Admin</Text>
+            <ChevronLeft size={24} color={activeColors.textPrimary} />
+            <Text style={[styles.navTitle, { color: activeColors.textPrimary }]}>Panel Admin</Text>
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <HeaderClock />
             <TouchableOpacity onPress={() => loadAllData()} style={{ padding: 8 }}>
-              <RefreshCw size={17} color="#fff" />
+              <RefreshCw size={17} color={activeColors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
   
         {/* Tabs */}
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, { backgroundColor: isDarkMode ? '#111827' : '#ffffff', borderBottomColor: activeColors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
             {TABS.map(({ id, label, Icon }) => (
               <TouchableOpacity
                 key={id}
-                style={[styles.tabBtn, activeTab === id && styles.tabBtnActive]}
+                style={[
+                  styles.tabBtn, 
+                  activeTab === id && styles.tabBtnActive, 
+                  { backgroundColor: activeTab === id ? activeColors.primary : (isDarkMode ? '#1f2937' : '#e5e7eb') }
+                ]}
                 onPress={() => setActiveTab(id)}
                 activeOpacity={0.75}
               >
-                <Icon size={14} color={activeTab === id ? '#fff' : COLORS.textMuted} />
-                <Text style={[styles.tabBtnText, activeTab === id && styles.tabBtnTextActive]}>{label}</Text>
+                <Icon size={14} color={activeTab === id ? '#fff' : activeColors.textMuted} />
+                <Text style={[
+                  styles.tabBtnText, 
+                  activeTab === id && styles.tabBtnTextActive, 
+                  { color: activeTab === id ? '#fff' : activeColors.textSecondary }
+                ]}>
+                  {label}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>

@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { storage } from '../services/storageService';
 import { ChevronLeft, Save, Server, RefreshCw, CheckCircle, Wifi, Clock, Lock, Printer, Bluetooth, BluetoothOff } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
-import { COLORS, RADIUS } from '../styles/theme';
+import { COLORS, RADIUS, getThemeColors } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { FormInput } from '../components/FormInput';
 import { CustomButton } from '../components/CustomButton';
@@ -26,8 +26,9 @@ export const SettingsScreen = ({ onNavigate }) => {
   const {
     settings, updateSettings, lotteries, loadAllData,
     printerDevice, printerConnected, printerConnecting,
-    connectPrinter, disconnectPrinter, printTestPage
+    connectPrinter, disconnectPrinter, printTestPage, isDarkMode
   } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
 
   const isRoot = user?.role === 'root';
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
@@ -350,12 +351,16 @@ export const SettingsScreen = ({ onNavigate }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: activeColors.bgBase }]}>
       {/* Barra superior */}
-      <View style={[styles.navBar, { justifyContent: 'space-between' }]}>
+      <View style={[styles.navBar, { 
+        justifyContent: 'space-between', 
+        backgroundColor: isDarkMode ? '#111827' : '#ffffff', 
+        borderBottomColor: activeColors.border 
+      }]}>
         <TouchableOpacity onPress={() => onNavigate('dashboard')} style={styles.backBtn} activeOpacity={0.7}>
-          <ChevronLeft size={24} color="#fff" />
-          <Text style={styles.navTitle}>Ajustes</Text>
+          <ChevronLeft size={24} color={activeColors.textPrimary} />
+          <Text style={[styles.navTitle, { color: activeColors.textPrimary }]}>Ajustes</Text>
         </TouchableOpacity>
         <HeaderClock />
       </View>

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOWS, getThemeColors } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { CustomButton } from '../components/CustomButton';
 import { FormInput } from '../components/FormInput';
@@ -444,7 +444,8 @@ const AdminAuthModal = ({ visible, hasAnnouncedDraw, onSubmit, onCancel }) => {
 
 // ─── Componente principal ─────────────────────────────────────
 export const SalesHistoryScreen = ({ onNavigate }) => {
-  const { annulSale, paySalePrize, settings, lotteries, loadAllData, printTicket, printerConnected } = useApp();
+  const { annulSale, paySalePrize, settings, lotteries, loadAllData, printTicket, printerConnected, isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const { user } = useAuth();
 
 
@@ -778,17 +779,21 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
 
   // ─── Render ────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: activeColors.bgBase }]}>
       {/* Cabecera */}
-      <View style={[styles.navBar, { justifyContent: 'space-between' }]}>
+      <View style={[styles.navBar, { 
+        justifyContent: 'space-between', 
+        backgroundColor: isDarkMode ? '#111827' : '#ffffff', 
+        borderBottomColor: activeColors.border 
+      }]}>
         <TouchableOpacity onPress={() => onNavigate('dashboard')} style={styles.backBtn} activeOpacity={0.7}>
-          <ChevronLeft size={24} color="#fff" />
-          <Text style={styles.navTitle}>Historial de Ventas</Text>
+          <ChevronLeft size={24} color={activeColors.textPrimary} />
+          <Text style={[styles.navTitle, { color: activeColors.textPrimary }]}>Historial de Ventas</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <HeaderClock />
           <TouchableOpacity onPress={loadSales} style={styles.refreshBtn} activeOpacity={0.7}>
-            <RefreshCw size={18} color="#fff" />
+            <RefreshCw size={18} color={activeColors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>

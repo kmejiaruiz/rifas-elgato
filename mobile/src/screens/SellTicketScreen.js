@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Plus, Trash2, ShoppingCart, Lock, AlertTriangle, CheckCircle, X, ChevronDown, Share2, Printer, QrCode } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
+import { COLORS, RADIUS, SHADOWS, getThemeColors } from '../styles/theme';
 import { GlassCard } from '../components/GlassCard';
 import { CustomButton } from '../components/CustomButton';
 import { validateJugada, getLotteryById, formatLotteryNumber, LOTTERY_LIST } from '../data/lotteryTypes';
@@ -521,7 +521,8 @@ const generateWhatsAppText = (sale, settings, lottery) => {
 
 // ─── Componente principal ─────────────────────────────────────
 export const SellTicketScreen = ({ onNavigate }) => {
-  const { lotteries, addSale, settings, loading: dataLoading, printTicket, printerConnected, loadAllData } = useApp();
+  const { lotteries, addSale, settings, loading: dataLoading, printTicket, printerConnected, loadAllData, isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const { user } = useAuth();
   const ticketRef = useRef(null);
 
@@ -887,7 +888,7 @@ export const SellTicketScreen = ({ onNavigate }) => {
 
   if (dataLoading) {
     return (
-      <View style={styles.loaderContainer}>
+      <View style={[styles.loaderContainer, { backgroundColor: activeColors.bgBase }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -898,12 +899,16 @@ export const SellTicketScreen = ({ onNavigate }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: activeColors.bgBase }]}>
       {/* Barra superior */}
-      <View style={[styles.navBar, { justifyContent: 'space-between' }]}>
+      <View style={[styles.navBar, { 
+        justifyContent: 'space-between', 
+        backgroundColor: isDarkMode ? '#111827' : '#ffffff', 
+        borderBottomColor: activeColors.border 
+      }]}>
         <TouchableOpacity onPress={() => onNavigate('dashboard')} style={styles.backBtn} activeOpacity={0.7}>
-          <ChevronLeft size={24} color="#fff" />
-          <Text style={styles.navTitle}>Venta de Boletos</Text>
+          <ChevronLeft size={24} color={activeColors.textPrimary} />
+          <Text style={[styles.navTitle, { color: activeColors.textPrimary }]}>Venta de Boletos</Text>
         </TouchableOpacity>
         <HeaderClock />
       </View>
@@ -911,17 +916,17 @@ export const SellTicketScreen = ({ onNavigate }) => {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
 
         {/* ─── Selector de Lotería ─────────────────────────── */}
-        <Text style={styles.sectionLabel}>Seleccionar Lotería</Text>
+        <Text style={[styles.sectionLabel, { color: activeColors.textSecondary }]}>Seleccionar Lotería</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           {lotteries.filter(l => l.enabled !== false).map(game => (
             <TouchableOpacity
               key={game.id}
-              style={[styles.gameTab, selectedType === game.id ? styles.gameTabActive : null]}
+              style={[styles.gameTab, selectedType === game.id ? styles.gameTabActive : null, { backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderColor: activeColors.border }]}
               onPress={() => setSelectedType(game.id)}
               activeOpacity={0.75}
             >
               {game.emoji ? <Text style={{ fontSize: 16, marginBottom: 2 }}>{game.emoji}</Text> : null}
-              <Text style={[styles.gameTabText, selectedType === game.id && styles.gameTabTextActive]}>
+              <Text style={[styles.gameTabText, selectedType === game.id && styles.gameTabTextActive, { color: selectedType === game.id ? '#ffffff' : activeColors.textSecondary }]}>
                 {game.name}
               </Text>
             </TouchableOpacity>
@@ -944,26 +949,26 @@ export const SellTicketScreen = ({ onNavigate }) => {
             <View style={styles.gameInfo}>
               <View style={styles.gameInfoNameRow}>
                 {lottery.emoji ? <Text style={styles.gameInfoEmoji}>{lottery.emoji}</Text> : null}
-                <Text style={styles.gameInfoName}>{lottery.name}</Text>
+                <Text style={[styles.gameInfoName, { color: activeColors.textPrimary }]}>{lottery.name}</Text>
               </View>
-              <Text style={styles.gameInfoDesc}>{lottery.description}</Text>
+              <Text style={[styles.gameInfoDesc, { color: activeColors.textSecondary }]}>{lottery.description}</Text>
             </View>
 
             {/* ─── Selectores Fecha y Hora ──────────────────── */}
             <GlassCard style={styles.drawCard}>
               <View style={styles.drawRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>Fecha del sorteo</Text>
-                  <View style={[styles.dateDisplayBox, !isPast5PM && { opacity: 0.6 }]}>
-                    <Text style={styles.dateDisplayText}>{formatDrawDate(selectedDate)}</Text>
-                    {!isPast5PM && <Lock size={12} color={COLORS.textMuted} />}
+                  <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Fecha del sorteo</Text>
+                  <View style={[styles.dateDisplayBox, !isPast5PM && { opacity: 0.6 }, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.7)' : '#ffffff', borderColor: activeColors.border }]}>
+                    <Text style={[styles.dateDisplayText, { color: activeColors.textPrimary }]}>{formatDrawDate(selectedDate)}</Text>
+                    {!isPast5PM && <Lock size={12} color={activeColors.textMuted} />}
                   </View>
                   {!isPast5PM && (
                     <Text style={styles.dateHintText}>Bloqueado hasta las 5 PM</Text>
                   )}
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.fieldLabel}>
+                  <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>
                     Hora del sorteo {lottery?.allowMultiDraw ? <Text style={{ color: COLORS.primaryLight, fontSize: 8.5 }}>(toca varias)</Text> : null}
                   </Text>
                   <View style={styles.hoursGrid}>
@@ -988,6 +993,7 @@ export const SellTicketScreen = ({ onNavigate }) => {
                             styles.hourChip,
                             isSelected && styles.hourChipActive,
                             !open && styles.hourChipClosed,
+                            { backgroundColor: isSelected ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }
                           ]}
                           onPress={toggleHour}
                           activeOpacity={open ? 0.7 : 1}
@@ -996,6 +1002,7 @@ export const SellTicketScreen = ({ onNavigate }) => {
                             styles.hourChipText,
                             isSelected && styles.hourChipTextActive,
                             !open && styles.hourChipTextClosed,
+                            { color: isSelected ? '#ffffff' : activeColors.textSecondary }
                           ]}>
                             {formatHourAmPm(hVal)}
                             {!open ? '\n(Cerrado)' : ''}

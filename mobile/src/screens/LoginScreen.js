@@ -65,10 +65,7 @@ export const LoginScreen = () => {
     }
   };
 
-  const loadPreset = (user, pass) => {
-    setUsername(user);
-    setPassword(pass);
-  };
+
 
   return (
     <KeyboardAvoidingView
@@ -133,26 +130,7 @@ export const LoginScreen = () => {
             style={{ marginTop: 12 }}
           />
 
-          {/* Presets Rápidos */}
-          <View style={styles.divider} />
-          <Text style={styles.hintTitle}>Cuentas de prueba:</Text>
-          
-          <View style={styles.presetRow}>
-            <CustomButton
-              title="Administrador"
-              variant="secondary"
-              onPress={() => loadPreset('admin', 'admin123')}
-              style={styles.presetBtn}
-              textStyle={{ fontSize: 12 }}
-            />
-            <CustomButton
-              title="Vendedor"
-              variant="secondary"
-              onPress={() => loadPreset('vendedor', '1234')}
-              style={styles.presetBtn}
-              textStyle={{ fontSize: 12 }}
-            />
-          </View>
+
         </GlassCard>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -238,25 +216,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 16,
-  },
-  hintTitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginBottom: 10,
-    fontWeight: '600',
-  },
-  presetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  presetBtn: {
-    flex: 1,
-    height: 36,
-  },
+
 });

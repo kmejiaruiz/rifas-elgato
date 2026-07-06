@@ -94,6 +94,8 @@ const fi = StyleSheet.create({
 
 // ─── Tab: Juegos ──────────────────────────────────────────────
 const GamesTab = ({ lotteries, loadAllData }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [gameStates, setGameStates] = useState([]);
   const [loadingStates, setLoadingStates] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -275,7 +277,7 @@ const GamesTab = ({ lotteries, loadAllData }) => {
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={styles.tabDesc}>
+      <Text style={[styles.tabDesc, { color: activeColors.textMuted }]}>
         Habilita/deshabilita juegos, edita sus parámetros de precio, horas y premios.
       </Text>
 
@@ -286,11 +288,11 @@ const GamesTab = ({ lotteries, loadAllData }) => {
             <View style={[styles.gameIconBox, { backgroundColor: game.enabled ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.04)' }]}>
               {game.emoji
                 ? <Text style={{ fontSize: 20 }}>{game.emoji}</Text>
-                : <Gamepad2 size={18} color={game.enabled ? COLORS.primaryLight : COLORS.textMuted} />}
+                : <Gamepad2 size={18} color={game.enabled ? activeColors.primaryLight : activeColors.textMuted} />}
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.gameTitleRow}>
-                <Text style={styles.gameName}>{game.name}</Text>
+                <Text style={[styles.gameName, { color: activeColors.textPrimary }]}>{game.name}</Text>
                 {game.isCustom && (
                   <View style={styles.customBadge}>
                     <Text style={styles.customBadgeText}>Personalizado</Text>
@@ -302,10 +304,10 @@ const GamesTab = ({ lotteries, loadAllData }) => {
                   </View>
                 )}
               </View>
-              <Text style={styles.gameDesc} numberOfLines={1}>{game.description}</Text>
-              <Text style={styles.gameMeta}>
+              <Text style={[styles.gameDesc, { color: activeColors.textSecondary }]} numberOfLines={1}>{game.description}</Text>
+              <Text style={[styles.gameMeta, { color: activeColors.textMuted }]}>
                 Base: {game.priceLabel}{game.defaultPrice}
-                {'  ·  '}Premio: <Text style={{ color: COLORS.successLight, fontWeight: '800' }}>{game.payoutMultiplier}x</Text>
+                {'  ·  '}Premio: <Text style={{ color: activeColors.successLight, fontWeight: '800' }}>{game.payoutMultiplier}x</Text>
                 {'\n'}Sorteos: {game.drawHours?.split(',').map(h => formatHourAmPm(h.trim())).join(', ')}
               </Text>
             </View>
@@ -319,12 +321,12 @@ const GamesTab = ({ lotteries, loadAllData }) => {
                 onPress={() => editingId === game.id ? setEditingId(null) : startEdit(game)}
                 style={styles.iconBtn}
               >
-                <Edit3 size={15} color={COLORS.textSecondary} />
+                <Edit3 size={15} color={activeColors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => toggleEnabled(game)} activeOpacity={0.7}>
                 {game.enabled
                   ? <ToggleRight size={34} color={COLORS.successLight} />
-                  : <ToggleLeft size={34} color={COLORS.textMuted} />}
+                  : <ToggleLeft size={34} color={activeColors.textMuted} />}
               </TouchableOpacity>
             </View>
           </View>
@@ -565,6 +567,8 @@ const GamesTab = ({ lotteries, loadAllData }) => {
 
 // ─── Tab: Números bloqueados ──────────────────────────────────
 const NumbersTab = ({ lotteries }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [selectedGame, setSelectedGame] = useState(lotteries[0]?.id || '');
   const [blocked, setBlocked] = useState([]);
   const [newNum, setNewNum] = useState(lotteries[0]?.id === 'fechea' ? '01/01' : '');
@@ -636,20 +640,20 @@ const NumbersTab = ({ lotteries }) => {
 
   return (
     <View style={{ gap: 12 }}>
-      <Text style={styles.tabDesc}>Cierra números para que no puedan venderse en un juego específico.</Text>
+      <Text style={[styles.tabDesc, { color: activeColors.textMuted }]}>Cierra números para que no puedan venderse en un juego específico.</Text>
 
       {/* Selector de juego */}
       <GlassCard style={styles.innerCard}>
-        <Text style={styles.fieldLabel}>Juego</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Juego</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
           {lotteries.map(l => (
             <TouchableOpacity
                key={l.id}
-               style={[styles.gameChip, selectedGame === l.id && styles.gameChipActive]}
+               style={[styles.gameChip, selectedGame === l.id && styles.gameChipActive, { backgroundColor: selectedGame === l.id ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }]}
                onPress={() => handleSelectGame(l.id)}
             >
               {l.emoji ? <Text style={{ fontSize: 14 }}>{l.emoji}</Text> : null}
-              <Text style={[styles.gameChipText, selectedGame === l.id && styles.gameChipTextActive]}>{l.name}</Text>
+              <Text style={[styles.gameChipText, selectedGame === l.id && styles.gameChipTextActive, { color: selectedGame === l.id ? '#ffffff' : activeColors.textSecondary }]}>{l.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -657,7 +661,7 @@ const NumbersTab = ({ lotteries }) => {
 
       {/* Agregar número */}
       <GlassCard style={styles.innerCard}>
-        <Text style={styles.fieldLabel}>{selectedGame === 'fechea' ? 'Bloquear fecha' : 'Bloquear número'}</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>{selectedGame === 'fechea' ? 'Bloquear fecha' : 'Bloquear número'}</Text>
         <View style={[styles.blockRow, selectedGame === 'fechea' && { flexDirection: 'column', alignItems: 'stretch' }]}>
           {selectedGame === 'fechea' ? (
             <View style={{ marginBottom: 10 }}>
@@ -665,11 +669,11 @@ const NumbersTab = ({ lotteries }) => {
             </View>
           ) : (
             <TextInput
-              style={[fi.input, { flex: 1, fontSize: 18, fontWeight: '800', textAlign: 'center' }]}
+              style={[fi.input, { flex: 1, fontSize: 18, fontWeight: '800', textAlign: 'center', backgroundColor: isDarkMode ? '#111827' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
               value={newNum}
               onChangeText={setNewNum}
               placeholder={lottery?.numberRange ? `${lottery.minNumber || 0}–${lottery.maxNumber || 99}` : 'Número'}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={activeColors.textMuted}
               keyboardType="numeric"
             />
           )}
@@ -686,7 +690,7 @@ const NumbersTab = ({ lotteries }) => {
       {/* Lista de bloqueados */}
       <GlassCard style={styles.innerCard}>
         <View style={styles.blockedHeader}>
-          <Text style={styles.fieldLabel}>{selectedGame === 'fechea' ? 'Fechas cerradas' : 'Números cerrados'} ({blocked.length})</Text>
+          <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>{selectedGame === 'fechea' ? 'Fechas cerradas' : 'Números cerrados'} ({blocked.length})</Text>
           {blocked.length > 0 && (
             <TouchableOpacity onPress={handleClearAll}>
               <View style={styles.btnInner}>
@@ -697,14 +701,14 @@ const NumbersTab = ({ lotteries }) => {
           )}
         </View>
         {loading
-          ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 12 }} />
+          ? <ActivityIndicator color={activeColors.primary} style={{ marginVertical: 12 }} />
           : blocked.length === 0
-            ? <Text style={styles.emptyText}>{selectedGame === 'fechea' ? 'No hay fechas cerradas' : 'No hay números cerrados'}</Text>
+            ? <Text style={[styles.emptyText, { color: activeColors.textMuted }]}>{selectedGame === 'fechea' ? 'No hay fechas cerradas' : 'No hay números cerrados'}</Text>
             : (
               <View style={styles.blockedChips}>
                 {blocked.map(num => (
-                  <View key={num} style={styles.blockedChip}>
-                    <Text style={styles.blockedChipText}>{selectedGame === 'fechea' ? formatFecheaDate(num) : num}</Text>
+                  <View key={num} style={[styles.blockedChip, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: activeColors.border }]}>
+                    <Text style={[styles.blockedChipText, { color: activeColors.textPrimary }]}>{selectedGame === 'fechea' ? formatFecheaDate(num) : num}</Text>
                     <TouchableOpacity onPress={() => handleUnblock(num)}>
                       <X size={12} color="#f87171" />
                     </TouchableOpacity>
@@ -927,6 +931,8 @@ const DrawDatePicker = ({ value, onChange }) => {
 
 
 const ResultsTab = ({ lotteries }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -1042,36 +1048,36 @@ const ResultsTab = ({ lotteries }) => {
 
   return (
     <View style={{ gap: 12 }}>
-      <Text style={styles.tabDesc}>Anuncia ganadores de sorteos. Se marcarán los boletos ganadores automáticamente.</Text>
+      <Text style={[styles.tabDesc, { color: activeColors.textMuted }]}>Anuncia ganadores de sorteos. Se marcarán los boletos ganadores automáticamente.</Text>
 
       {/* Formulario de anuncio */}
       <GlassCard style={styles.innerCard}>
-        <Text style={[styles.fieldLabel, { marginBottom: 10 }]}>Anunciar Ganador</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary, marginBottom: 10 }]}>Anunciar Ganador</Text>
 
         {/* Juego */}
-        <Text style={styles.fieldLabel}>Juego</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Juego</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
           {lotteries.map(l => (
             <TouchableOpacity
               key={l.id}
-              style={[styles.gameChip, form.lotteryId === l.id && styles.gameChipActive]}
+              style={[styles.gameChip, form.lotteryId === l.id && styles.gameChipActive, { backgroundColor: form.lotteryId === l.id ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }]}
               onPress={() => setForm(f => ({ ...f, lotteryId: l.id, hour: '12:00', numero: l.id === 'fechea' ? '01/01' : '' }))}
             >
               {l.emoji ? <Text style={{ fontSize: 14 }}>{l.emoji}</Text> : null}
-              <Text style={[styles.gameChipText, form.lotteryId === l.id && styles.gameChipTextActive]}>{l.name}</Text>
+              <Text style={[styles.gameChipText, form.lotteryId === l.id && styles.gameChipTextActive, { color: form.lotteryId === l.id ? '#ffffff' : activeColors.textSecondary }]}>{l.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* Fecha */}
-        <Text style={[styles.fieldLabel, { marginBottom: 4 }]}>Fecha del sorteo</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary, marginBottom: 4 }]}>Fecha del sorteo</Text>
         <TouchableOpacity
-          style={styles.dropdownTrigger}
+          style={[styles.dropdownTrigger, { backgroundColor: isDarkMode ? '#111827' : '#ffffff', borderColor: activeColors.border }]}
           onPress={() => setShowDatePicker(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.dropdownTriggerText}>{formatDrawDate(form.date)}</Text>
-          <ChevronLeft size={16} color={COLORS.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+          <Text style={[styles.dropdownTriggerText, { color: activeColors.textPrimary }]}>{formatDrawDate(form.date)}</Text>
+          <ChevronLeft size={16} color={activeColors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
         </TouchableOpacity>
 
         {/* Modal Dropdown para Fecha (Día, Mes, Año) */}
@@ -1081,8 +1087,8 @@ const ResultsTab = ({ lotteries }) => {
             activeOpacity={1}
             onPress={() => setShowDatePicker(false)}
           >
-            <GlassCard style={[styles.passModalCard, { maxWidth: 320 }]}>
-              <Text style={[styles.passModalTitle, { marginBottom: 15 }]}>Seleccionar Fecha de Sorteo</Text>
+            <GlassCard style={[styles.passModalCard, { maxWidth: 320, backgroundColor: activeColors.bgElevated }]}>
+              <Text style={[styles.passModalTitle, { marginBottom: 15, color: activeColors.textPrimary }]}>Seleccionar Fecha de Sorteo</Text>
               
               <DrawDatePicker 
                 value={form.date} 
@@ -1100,14 +1106,14 @@ const ResultsTab = ({ lotteries }) => {
         </Modal>
 
         {/* Hora */}
-        <Text style={[styles.fieldLabel, { marginBottom: 4 }]}>Hora del sorteo</Text>
+        <Text style={[styles.fieldLabel, { color: activeColors.textSecondary, marginBottom: 4 }]}>Hora del sorteo</Text>
         <TouchableOpacity
-          style={styles.dropdownTrigger}
+          style={[styles.dropdownTrigger, { backgroundColor: isDarkMode ? '#111827' : '#ffffff', borderColor: activeColors.border }]}
           onPress={() => setShowHourPicker(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.dropdownTriggerText}>{formatHourAmPm(form.hour)}</Text>
-          <ChevronLeft size={16} color={COLORS.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+          <Text style={[styles.dropdownTriggerText, { color: activeColors.textPrimary }]}>{formatHourAmPm(form.hour)}</Text>
+          <ChevronLeft size={16} color={activeColors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
         </TouchableOpacity>
 
         {/* Modal Dropdown para Horas */}
@@ -1117,8 +1123,8 @@ const ResultsTab = ({ lotteries }) => {
             activeOpacity={1}
             onPress={() => setShowHourPicker(false)}
           >
-            <GlassCard style={styles.passModalCard}>
-              <Text style={[styles.passModalTitle, { marginBottom: 10 }]}>Seleccionar Hora de Sorteo</Text>
+            <GlassCard style={[styles.passModalCard, { backgroundColor: activeColors.bgElevated }]}>
+              <Text style={[styles.passModalTitle, { marginBottom: 10, color: activeColors.textPrimary }]}>Seleccionar Hora de Sorteo</Text>
               {lotteryHours.map(h => (
                 <TouchableOpacity
                   key={h}
@@ -1133,7 +1139,8 @@ const ResultsTab = ({ lotteries }) => {
                 >
                   <Text style={[
                     styles.dropdownOptionText,
-                    form.hour === h && styles.dropdownOptionTextActive
+                    form.hour === h && styles.dropdownOptionTextActive,
+                    { color: form.hour === h ? activeColors.primaryLight : activeColors.textSecondary }
                   ]}>
                     {formatHourAmPm(h)}
                   </Text>
@@ -1146,7 +1153,7 @@ const ResultsTab = ({ lotteries }) => {
         {/* Número ganador o Fecha Ganadora */}
         {form.lotteryId === 'fechea' ? (
           <View style={{ marginBottom: 12 }}>
-            <Text style={styles.fieldLabel}>Fecha Ganadora (Día/Mes)</Text>
+            <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Fecha Ganadora (Día/Mes)</Text>
             <View style={{ marginTop: 6 }}>
               <FecheaPicker
                 value={form.numero || '01/01'}
@@ -1156,15 +1163,15 @@ const ResultsTab = ({ lotteries }) => {
           </View>
         ) : (
           <View style={{ marginBottom: 12 }}>
-            <Text style={styles.fieldLabel}>Número Ganador</Text>
+            <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Número Ganador</Text>
             <TextInput
               style={{
                 height: 48,
-                backgroundColor: '#111827',
+                backgroundColor: isDarkMode ? '#111827' : '#ffffff',
                 borderRadius: RADIUS.sm,
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)',
-                color: '#fff',
+                borderColor: activeColors.border,
+                color: activeColors.textPrimary,
                 fontSize: 24,
                 fontWeight: '900',
                 textAlign: 'center',
@@ -1172,7 +1179,7 @@ const ResultsTab = ({ lotteries }) => {
               value={form.numero}
               onChangeText={v => setForm(f => ({ ...f, numero: v }))}
               placeholder="00"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={activeColors.textMuted}
               keyboardType="numeric"
             />
           </View>
@@ -1268,6 +1275,8 @@ const generatePreviewUsername = (fullName, existingUsers = []) => {
 
 // ─── Tab: Usuarios ────────────────────────────────────────────
 const UsersTab = () => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const { getUsers, createUser, updateUser, deleteUser, user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1403,43 +1412,43 @@ const UsersTab = () => {
       {/* Formulario de creación */}
       {showForm && (
         <GlassCard style={styles.innerCard}>
-          <Text style={[styles.fieldLabel, { marginBottom: 10, fontSize: 12 }]}>Nuevo Usuario</Text>
+          <Text style={[styles.fieldLabel, { color: activeColors.textSecondary, marginBottom: 10, fontSize: 12 }]}>Nuevo Usuario</Text>
           <StrInput label="Nombre completo" value={form.name} onChange={handleNameChange} placeholder="María García" autoCapitalize="words" autoFocus />
           <View style={fi.group}>
-            <Text style={fi.label}>Nombre de usuario (automático)</Text>
+            <Text style={[fi.label, { color: activeColors.textSecondary }]}>Nombre de usuario (automático)</Text>
             <TextInput
-              style={[fi.input, { backgroundColor: 'rgba(255,255,255,0.03)', color: COLORS.textMuted, fontWeight: '700' }]}
+              style={[fi.input, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#f3f4f6', color: activeColors.textMuted, borderColor: activeColors.border, fontWeight: '700' }]}
               value={form.username ? `@${form.username}` : ''}
               editable={false}
             />
           </View>
           <View style={fi.group}>
-            <Text style={fi.label}>Contraseña</Text>
+            <Text style={[fi.label, { color: activeColors.textSecondary }]}>Contraseña</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TextInput
-                style={[fi.input, { flex: 1 }]}
+                style={[fi.input, { flex: 1, backgroundColor: isDarkMode ? '#111827' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
                 value={form.password}
                 onChangeText={v => setForm(f => ({ ...f, password: v }))}
                 placeholder="Mínimo 4 caracteres"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={activeColors.textMuted}
                 secureTextEntry={!showPass}
               />
               <TouchableOpacity onPress={() => setShowPass(v => !v)} style={{ padding: 8, marginLeft: 4 }}>
-                {showPass ? <EyeOff size={16} color={COLORS.textMuted} /> : <Eye size={16} color={COLORS.textMuted} />}
+                {showPass ? <EyeOff size={16} color={activeColors.textMuted} /> : <Eye size={16} color={activeColors.textMuted} />}
               </TouchableOpacity>
             </View>
           </View>
           {/* Rol */}
-          <Text style={fi.label}>Rol</Text>
+          <Text style={[fi.label, { color: activeColors.textSecondary }]}>Rol</Text>
           <View style={styles.roleRow}>
             {['vendedor', 'admin'].map(r => (
               <TouchableOpacity
                 key={r}
-                style={[styles.roleChip, form.role === r && styles.roleChipActive]}
+                style={[styles.roleChip, form.role === r && styles.roleChipActive, { backgroundColor: form.role === r ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }]}
                 onPress={() => setForm(f => ({ ...f, role: r }))}
               >
-                {r === 'admin' ? <Shield size={12} color={form.role === r ? '#fff' : COLORS.textMuted} /> : <Users size={12} color={form.role === r ? '#fff' : COLORS.textMuted} />}
-                <Text style={[styles.roleChipText, form.role === r && styles.roleChipTextActive]}>
+                {r === 'admin' ? <Shield size={12} color={form.role === r ? '#fff' : activeColors.textMuted} /> : <Users size={12} color={form.role === r ? '#fff' : activeColors.textMuted} />}
+                <Text style={[styles.roleChipText, form.role === r && styles.roleChipTextActive, { color: form.role === r ? '#ffffff' : activeColors.textSecondary }]}>
                   {r === 'admin' ? 'Admin' : 'Vendedor'}
                 </Text>
               </TouchableOpacity>
@@ -1460,12 +1469,12 @@ const UsersTab = () => {
 
       {/* Lista de usuarios */}
       {loading
-        ? <ActivityIndicator color={COLORS.primary} />
+        ? <ActivityIndicator color={activeColors.primary} />
         : users.map(u => (
           <GlassCard key={u.id} style={[styles.innerCard, { opacity: u.active ? 1 : 0.65 }]}>
             {editingId === u.id ? (
               <View style={{ gap: 8 }}>
-                <Text style={[styles.fieldLabel, { color: COLORS.primaryLight, marginBottom: 4 }]}>Editar Usuario</Text>
+                <Text style={[styles.fieldLabel, { color: activeColors.primaryLight, marginBottom: 4 }]}>Editar Usuario</Text>
                 <StrInput label="Nombre completo" value={editForm.name} onChange={v => setEditForm(f => ({ ...f, name: v }))} placeholder="Nombre" autoCapitalize="words" autoFocus />
                 <StrInput label="Nueva contraseña (opcional)" value={editForm.password} onChange={v => setEditForm(f => ({ ...f, password: v }))} placeholder="Dejar en blanco para no cambiar" secureTextEntry />
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
@@ -1484,11 +1493,11 @@ const UsersTab = () => {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.userName}>{u.name}</Text>
+                    <Text style={[styles.userName, { color: activeColors.textPrimary }]}>{u.name}</Text>
                     {u.id === me?.id && <View style={styles.meBadge}><Text style={styles.meBadgeText}>Tú</Text></View>}
                     {!u.active && <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Inactivo</Text></View>}
                   </View>
-                  <Text style={styles.userSub}>@{u.username} · {u.role === 'admin' ? 'Administrador' : 'Vendedor'}</Text>
+                  <Text style={[styles.userSub, { color: activeColors.textSecondary }]}>@{u.username} · {u.role === 'admin' ? 'Administrador' : 'Vendedor'}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                   <TouchableOpacity onPress={() => startEdit(u)} style={{ padding: 6 }}>
@@ -1548,6 +1557,8 @@ const getDefaultDatesForUser = (user) => {
 };
 
 const SalariesTab = () => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const { updateUser } = useAuth();
   const [report, setReport] = useState([]);
   const [paymentsHistory, setPaymentsHistory] = useState([]);
@@ -1780,15 +1791,15 @@ const SalariesTab = () => {
     <View style={{ gap: 12 }}>
       {/* Encabezado descriptivo con botón refrescar */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontSize: 11, color: COLORS.textSecondary, flex: 1, marginRight: 8, lineHeight: 15 }}>
+        <Text style={{ fontSize: 11, color: activeColors.textSecondary, flex: 1, marginRight: 8, lineHeight: 15 }}>
           Supervisa las ventas del día, premios liquidados, comisiones/salarios y balance neto de cada vendedor.
         </Text>
         <TouchableOpacity
-          style={{ paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#1f2937', borderRadius: RADIUS.sm, flexDirection: 'row', gap: 4, alignItems: 'center' }}
+          style={{ paddingVertical: 6, paddingHorizontal: 10, backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderColor: activeColors.border, borderWidth: 1, borderRadius: RADIUS.sm, flexDirection: 'row', gap: 4, alignItems: 'center' }}
           onPress={() => fetchReport(startDateInput, endDateInput, true)}
         >
-          <RefreshCw size={11} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Refrescar</Text>
+          <RefreshCw size={11} color={activeColors.textPrimary} />
+          <Text style={{ color: activeColors.textPrimary, fontSize: 11, fontWeight: '700' }}>Refrescar</Text>
         </TouchableOpacity>
       </View>
 
@@ -1800,8 +1811,8 @@ const SalariesTab = () => {
             <TouchableOpacity
               key={usr.id}
               style={[
-                { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#1f2937', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-                isSelected && { backgroundColor: COLORS.primary, borderColor: COLORS.primaryLight }
+                { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderWidth: 1, borderColor: activeColors.border },
+                isSelected && { backgroundColor: activeColors.primary, borderColor: activeColors.primaryLight }
               ]}
               onPress={() => setSelectedUserId(usr.id)}
             >
@@ -1810,7 +1821,7 @@ const SalariesTab = () => {
               ) : (
                 <Users size={12} color={isSelected ? '#fff' : '#60a5fa'} />
               )}
-              <Text style={{ color: isSelected ? '#fff' : COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>{usr.name}</Text>
+              <Text style={{ color: isSelected ? '#fff' : activeColors.textSecondary, fontSize: 12, fontWeight: '700' }}>{usr.name}</Text>
             </TouchableOpacity>
           );
         })}
@@ -1818,15 +1829,15 @@ const SalariesTab = () => {
 
       {/* Rango de Consulta de Fechas (Mobile) */}
       <GlassCard style={{ padding: 12, gap: 8 }}>
-        <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary }}>Rango de Consulta</Text>
+        <Text style={{ fontSize: 11, fontWeight: '700', color: activeColors.textSecondary }}>Rango de Consulta</Text>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 9, color: COLORS.textMuted }}>Desde</Text>
+            <Text style={{ fontSize: 9, color: activeColors.textMuted }}>Desde</Text>
             <TouchableOpacity
               style={{
-                backgroundColor: '#111827',
+                backgroundColor: isDarkMode ? '#111827' : '#ffffff',
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)',
+                borderColor: activeColors.border,
                 borderRadius: 6,
                 paddingHorizontal: 8,
                 justifyContent: 'center',
@@ -1835,18 +1846,18 @@ const SalariesTab = () => {
               onPress={() => setShowStartPicker(true)}
               activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 12, color: startDateInput ? '#fff' : COLORS.textMuted }}>
+              <Text style={{ fontSize: 12, color: startDateInput ? activeColors.textPrimary : activeColors.textMuted }}>
                 {startDateInput || 'AAAA-MM-DD'}
               </Text>
             </TouchableOpacity>
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 9, color: COLORS.textMuted }}>Hasta</Text>
+            <Text style={{ fontSize: 9, color: activeColors.textMuted }}>Hasta</Text>
             <TouchableOpacity
               style={{
-                backgroundColor: '#111827',
+                backgroundColor: isDarkMode ? '#111827' : '#ffffff',
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)',
+                borderColor: activeColors.border,
                 borderRadius: 6,
                 paddingHorizontal: 8,
                 justifyContent: 'center',
@@ -1855,14 +1866,14 @@ const SalariesTab = () => {
               onPress={() => setShowEndPicker(true)}
               activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 12, color: endDateInput ? '#fff' : COLORS.textMuted }}>
+              <Text style={{ fontSize: 12, color: endDateInput ? activeColors.textPrimary : activeColors.textMuted }}>
                 {endDateInput || 'AAAA-MM-DD'}
               </Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={{
-              backgroundColor: COLORS.primary,
+              backgroundColor: activeColors.primary,
               height: 32,
               paddingHorizontal: 12,
               borderRadius: 6,
@@ -1925,14 +1936,14 @@ const SalariesTab = () => {
               </View>
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontWeight: '800', fontSize: 14, color: '#fff' }}>{u.name}</Text>
+                  <Text style={{ fontWeight: '800', fontSize: 14, color: activeColors.textPrimary }}>{u.name}</Text>
                   {!u.active && (
                     <View style={{ backgroundColor: 'rgba(239,68,68,0.12)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }}>
                       <Text style={{ fontSize: 8, color: COLORS.dangerLight, fontWeight: '800' }}>Inactivo</Text>
                     </View>
                   )}
                 </View>
-                <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 1 }}>
+                <Text style={{ fontSize: 11, color: activeColors.textSecondary, marginTop: 1 }}>
                   @{u.username} · {u.role === 'admin' ? 'Administrador' : 'Vendedor'}
                 </Text>
               </View>
@@ -1940,7 +1951,7 @@ const SalariesTab = () => {
 
             <TouchableOpacity
               style={[
-                { paddingVertical: 5, paddingHorizontal: 8, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', gap: 4, alignItems: 'center' },
+                { paddingVertical: 5, paddingHorizontal: 8, borderRadius: 6, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderWidth: 1, borderColor: activeColors.border, flexDirection: 'row', gap: 4, alignItems: 'center' },
                 isEditing && { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)' }
               ]}
               onPress={() => {
@@ -1952,7 +1963,7 @@ const SalariesTab = () => {
               }}
               disabled={savingId === u.id}
             >
-              <Text style={{ fontSize: 10, color: isEditing ? COLORS.dangerLight : COLORS.textSecondary, fontWeight: '800' }}>
+              <Text style={{ fontSize: 10, color: isEditing ? COLORS.dangerLight : activeColors.textSecondary, fontWeight: '800' }}>
                 {isEditing ? 'Cancelar' : 'Establecer Salario'}
               </Text>
             </TouchableOpacity>
@@ -1960,14 +1971,14 @@ const SalariesTab = () => {
 
           {/* Formulario de Configuración de Salario Inline */}
           {isEditing && (
-            <View style={{ backgroundColor: 'rgba(0,0,0,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, gap: 10 }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.primaryLight }}>Ajustar Salario para {u.name}</Text>
+            <View style={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.15)' : '#f3f4f6', borderWidth: 1, borderColor: activeColors.border, borderRadius: 8, padding: 12, gap: 10 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: activeColors.primaryLight }}>Ajustar Salario para {u.name}</Text>
               
               <View style={{ gap: 10 }}>
                 {/* Tipo de Salario */}
                 <View style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 9, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Tipo de Salario</Text>
-                  <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 9, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Tipo de Salario</Text>
+                  <View style={{ flexDirection: 'row', backgroundColor: isDarkMode ? 'rgba(0,0,0,0.3)' : '#e5e7eb', borderRadius: 6, padding: 2, borderWidth: 1, borderColor: activeColors.border }}>
                     <TouchableOpacity
                       style={[{ flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 4 }, editState.type === 'percentage' && { backgroundColor: COLORS.primary }]}
                       onPress={() => setEditingSalary(prev => ({ ...prev, [u.id]: { ...prev[u.id], type: 'percentage' } }))}
@@ -1985,7 +1996,7 @@ const SalariesTab = () => {
 
                 {/* Frecuencia de Pago */}
                 <View style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 9, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Frecuencia de Pago</Text>
+                  <Text style={{ fontSize: 9, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Frecuencia de Pago</Text>
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     {['daily', 'weekly', 'fortnightly', 'monthly'].map(p => {
                       const labels = { daily: 'Diario', weekly: 'Semanal', fortnightly: 'Quincenal', monthly: 'Mensual' };
@@ -1994,12 +2005,12 @@ const SalariesTab = () => {
                         <TouchableOpacity
                           key={p}
                           style={[
-                            { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 6, backgroundColor: '#111827', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-                            isSel && { backgroundColor: COLORS.primary, borderColor: COLORS.primaryLight }
+                            { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 6, backgroundColor: isDarkMode ? '#111827' : '#ffffff', borderWidth: 1, borderColor: activeColors.border },
+                            isSel && { backgroundColor: activeColors.primary, borderColor: activeColors.primaryLight }
                           ]}
                           onPress={() => setEditingSalary(prev => ({ ...prev, [u.id]: { ...prev[u.id], period: p } }))}
                         >
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '850' }}>{labels[p]}</Text>
+                          <Text style={{ color: isSel ? '#fff' : activeColors.textSecondary, fontSize: 10, fontWeight: '850' }}>{labels[p]}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -2008,15 +2019,15 @@ const SalariesTab = () => {
 
                 {/* Valor */}
                 <View style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 9, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>
+                  <Text style={{ fontSize: 9, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>
                     {editState.type === 'fixed' 
                       ? (editState.period === 'daily' ? 'Monto Diario (NIO)' : 'Monto Periodo (NIO)') 
                       : 'Comisión de Ventas (%)'}
                   </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', height: 32, paddingHorizontal: 8 }}>
-                    {editState.type === 'fixed' && <Text style={{ fontSize: 11, color: COLORS.textMuted, marginRight: 4 }}>NIO</Text>}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? '#111827' : '#ffffff', borderRadius: 6, borderWidth: 1, borderColor: activeColors.border, height: 32, paddingHorizontal: 8 }}>
+                    {editState.type === 'fixed' && <Text style={{ fontSize: 11, color: activeColors.textMuted, marginRight: 4 }}>NIO</Text>}
                     <TextInput
-                      style={{ flex: 1, color: '#fff', fontSize: 12, fontWeight: '700', padding: 0, textAlign: 'right' }}
+                      style={{ flex: 1, color: activeColors.textPrimary, fontSize: 12, fontWeight: '700', padding: 0, textAlign: 'right' }}
                       value={String(editState.value ?? '')}
                       onChangeText={val => {
                         const parsed = val === '' ? '' : parseFloat(val);
@@ -2024,27 +2035,27 @@ const SalariesTab = () => {
                       }}
                       keyboardType="numeric"
                       placeholder="0.00"
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={activeColors.textMuted}
                     />
-                    {editState.type === 'percentage' && <Text style={{ fontSize: 11, color: COLORS.textMuted, marginLeft: 4 }}>%</Text>}
+                    {editState.type === 'percentage' && <Text style={{ fontSize: 11, color: activeColors.textMuted, marginLeft: 4 }}>%</Text>}
                   </View>
                 </View>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                 <TouchableOpacity
-                  style={{ flex: 1, height: 34, backgroundColor: COLORS.primary, borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}
+                  style={{ flex: 1, height: 34, backgroundColor: activeColors.primary, borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}
                   onPress={() => handleSaveSalary(u.id)}
                   disabled={savingId === u.id}
                 >
                   {savingId === u.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>Guardar</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, height: 34, backgroundColor: '#1f2937', borderRadius: 6, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
+                  style={{ flex: 1, height: 34, backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderRadius: 6, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: activeColors.border }}
                   onPress={() => handleCancelEdit(u.id)}
                   disabled={savingId === u.id}
                 >
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '800' }}>Cancelar</Text>
+                  <Text style={{ color: activeColors.textSecondary, fontSize: 11, fontWeight: '800' }}>Cancelar</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2054,35 +2065,35 @@ const SalariesTab = () => {
           <View style={{ gap: 8 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {/* Venta Total */}
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 8 }}>
-                <Text style={{ fontSize: 8, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Venta Total</Text>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff', marginTop: 2 }}>{formatNIO(totalSold)}</Text>
-                <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginTop: 1 }}>{ticketsSold} boletos</Text>
+              <View style={{ flex: 1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: activeColors.border, borderRadius: 8, padding: 8 }}>
+                <Text style={{ fontSize: 8, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Venta Total</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: activeColors.textPrimary, marginTop: 2 }}>{formatNIO(totalSold)}</Text>
+                <Text style={{ fontSize: 9, color: activeColors.textSecondary, marginTop: 1 }}>{ticketsSold} boletos</Text>
               </View>
 
               {/* Total Premios */}
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 8 }}>
-                <Text style={{ fontSize: 8, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Total Premios</Text>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: prizesTotal > 0 ? '#fbbf24' : '#fff', marginTop: 2 }}>{formatNIO(prizesTotal)}</Text>
-                <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginTop: 1 }}>{prizesCount} premiados</Text>
+              <View style={{ flex: 1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: activeColors.border, borderRadius: 8, padding: 8 }}>
+                <Text style={{ fontSize: 8, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Total Premios</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: prizesTotal > 0 ? '#fbbf24' : activeColors.textPrimary, marginTop: 2 }}>{formatNIO(prizesTotal)}</Text>
+                <Text style={{ fontSize: 9, color: activeColors.textSecondary, marginTop: 1 }}>{prizesCount} premiados</Text>
               </View>
             </View>
 
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {/* Días Activos */}
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 8 }}>
-                <Text style={{ fontSize: 8, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Días Activos</Text>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff', marginTop: 2 }}>{daysActive} día{daysActive !== 1 ? 's' : ''}</Text>
-                <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginTop: 1 }}>Con ventas en rango</Text>
+              <View style={{ flex: 1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: activeColors.border, borderRadius: 8, padding: 8 }}>
+                <Text style={{ fontSize: 8, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Días Activos</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: activeColors.textPrimary, marginTop: 2 }}>{daysActive} día{daysActive !== 1 ? 's' : ''}</Text>
+                <Text style={{ fontSize: 9, color: activeColors.textSecondary, marginTop: 1 }}>Con ventas en rango</Text>
               </View>
 
               {/* Salario Configurado */}
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 8 }}>
-                <Text style={{ fontSize: 8, color: COLORS.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Salario Configurado</Text>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.primaryLight, marginTop: 2 }}>
+              <View style={{ flex: 1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', borderWidth: 1, borderColor: activeColors.border, borderRadius: 8, padding: 8 }}>
+                <Text style={{ fontSize: 8, color: activeColors.textMuted, fontWeight: '800', textTransform: 'uppercase' }}>Salario Configurado</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: activeColors.primaryLight, marginTop: 2 }}>
                   {u.salary_type === 'fixed' ? `${u.salary_value} Fijo` : `${u.salary_value}% com.`}
                 </Text>
-                <Text style={{ fontSize: 8, color: COLORS.textSecondary, marginTop: 1 }}>
+                <Text style={{ fontSize: 8, color: activeColors.textSecondary, marginTop: 1 }}>
                   Frec.: {u.salary_period === 'daily' ? 'Diario' : u.salary_period === 'weekly' ? 'Semanal' : u.salary_period === 'fortnightly' ? 'Quincenal' : 'Mensual'}
                 </Text>
               </View>
@@ -2093,7 +2104,7 @@ const SalariesTab = () => {
           <View style={{
             backgroundColor: 'rgba(124,58,237,0.08)',
             borderWidth: 1.5,
-            borderColor: COLORS.primary,
+            borderColor: activeColors.primary,
             borderRadius: 8,
             paddingVertical: 10,
             paddingHorizontal: 12,
@@ -2102,10 +2113,10 @@ const SalariesTab = () => {
             alignItems: 'center'
           }}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={{ fontSize: 11, fontWeight: '850', color: COLORS.primaryLight }}>Total Sueldo a Pagar</Text>
-              <Text style={{ fontSize: 8, color: COLORS.textMuted, marginTop: 1 }}>Del {formatDrawDate(startDateInput)} al {formatDrawDate(endDateInput)}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '850', color: activeColors.primaryLight }}>Total Sueldo a Pagar</Text>
+              <Text style={{ fontSize: 8, color: activeColors.textMuted, marginTop: 1 }}>Del {formatDrawDate(startDateInput)} al {formatDrawDate(endDateInput)}</Text>
             </View>
-            <Text style={{ fontSize: 16, fontWeight: '900', color: COLORS.primaryLight }}>{formatNIO(calculatedSalary)}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '900', color: activeColors.primaryLight }}>{formatNIO(calculatedSalary)}</Text>
           </View>
 
           {/* Resultados de Balance (Efectivo Neto / Caja) */}
@@ -2118,24 +2129,24 @@ const SalariesTab = () => {
                 : { backgroundColor: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.2)' }
             ]}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff' }}>Total a Entregar (Caja)</Text>
-                <Text style={{ fontSize: 9, color: COLORS.textMuted, marginTop: 1 }}>Ventas del periodo menos premios pagados</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: activeColors.textPrimary }}>Total a Entregar (Caja)</Text>
+                <Text style={{ fontSize: 9, color: activeColors.textMuted, marginTop: 1 }}>Ventas del periodo menos premios pagados</Text>
               </View>
               <Text style={{
                 fontSize: 15, fontWeight: '900',
-                color: totalToDeliver < 0 ? COLORS.dangerLight : COLORS.successLight
+                color: totalToDeliver < 0 ? activeColors.dangerLight : activeColors.successLight
               }}>{formatNIO(totalToDeliver)}</Text>
             </View>
 
             {/* Total a entregar descontando salario */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'transparent' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: activeColors.border, backgroundColor: 'transparent' }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textSecondary }}>Neto Descontando Salario</Text>
-                <Text style={{ fontSize: 8, color: COLORS.textMuted }}>Balance descontando la comisión/salario del vendedor</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: activeColors.textSecondary }}>Neto Descontando Salario</Text>
+                <Text style={{ fontSize: 8, color: activeColors.textMuted }}>Balance descontando la comisión/salario del vendedor</Text>
               </View>
               <Text style={{
                 fontSize: 13, fontWeight: '800',
-                color: totalToDeliverMinusSalary < 0 ? COLORS.dangerLight : COLORS.successLight
+                color: totalToDeliverMinusSalary < 0 ? activeColors.dangerLight : activeColors.successLight
               }}>{formatNIO(totalToDeliverMinusSalary)}</Text>
             </View>
           </View>
@@ -2152,7 +2163,7 @@ const SalariesTab = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Text style={{ color: COLORS.dangerLight, fontSize: 10, fontWeight: '800' }}>
+                <Text style={{ color: activeColors.dangerLight, fontSize: 10, fontWeight: '800' }}>
                   ✓ Periodo ya liquidado como pagado
                 </Text>
               </View>
@@ -2160,7 +2171,7 @@ const SalariesTab = () => {
               <TouchableOpacity
                 style={{
                   height: 38,
-                  backgroundColor: COLORS.primary,
+                  backgroundColor: activeColors.primary,
                   borderRadius: 8,
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -2177,15 +2188,15 @@ const SalariesTab = () => {
           </View>
 
           {/* Historial de Pagos de Salarios */}
-          <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingTop: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff', marginBottom: 8 }}>
+          <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: activeColors.border, paddingTop: 12 }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: activeColors.textPrimary, marginBottom: 8 }}>
               Historial de Pagos Registrados
             </Text>
             {(() => {
               const userPayments = paymentsHistory.filter(p => p.seller_id === u.id);
               if (userPayments.length === 0) {
                 return (
-                  <Text style={{ fontSize: 10, color: COLORS.textMuted, fontStyle: 'italic' }}>
+                  <Text style={{ fontSize: 10, color: activeColors.textMuted, fontStyle: 'italic' }}>
                     No hay pagos registrados para este vendedor.
                   </Text>
                 );
@@ -2212,9 +2223,9 @@ const SalariesTab = () => {
 
                     return (
                       <View key={p.id} style={{
-                        backgroundColor: 'rgba(255,255,255,0.01)',
+                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)',
                         borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.05)',
+                        borderColor: activeColors.border,
                         borderRadius: 8,
                         padding: 8,
                         flexDirection: 'row',
@@ -2224,7 +2235,7 @@ const SalariesTab = () => {
                       }}>
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <Text style={{ fontWeight: '700', color: '#fff', fontSize: 10 }}>
+                            <Text style={{ fontWeight: '700', color: activeColors.textPrimary, fontSize: 10 }}>
                               Periodo: {formatDrawDate(p.start_date)} al {formatDrawDate(p.end_date)}
                             </Text>
                             <View style={{
@@ -2240,15 +2251,15 @@ const SalariesTab = () => {
                               </Text>
                             </View>
                           </View>
-                          <Text style={{ fontSize: 8, color: COLORS.textMuted, marginTop: 2 }}>
+                          <Text style={{ fontSize: 8, color: activeColors.textMuted, marginTop: 2 }}>
                             Ventas: {formatNIO(parseFloat(p.total_sold))} · Premios: {formatNIO(parseFloat(p.prizes_total))}
                           </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                          <Text style={{ fontWeight: '800', color: COLORS.primaryLight, fontSize: 11 }}>
+                          <Text style={{ fontWeight: '800', color: activeColors.primaryLight, fontSize: 11 }}>
                             {formatNIO(parseFloat(p.commission_amount))}
                           </Text>
-                          <Text style={{ fontSize: 8, color: COLORS.textMuted }}>
+                          <Text style={{ fontSize: 8, color: activeColors.textMuted }}>
                             {new Date(p.paid_at).toLocaleDateString()}
                           </Text>
                           {p.status === 'pending' && (

@@ -5,7 +5,8 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { COLORS, RADIUS } from '../styles/theme';
+import { RADIUS, getThemeColors } from '../styles/theme';
+import { useApp } from '../context/AppContext';
 
 export const FormInput = ({
   label,
@@ -18,6 +19,8 @@ export const FormInput = ({
   autoFocus = false,
   ...props
 }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -25,17 +28,20 @@ export const FormInput = ({
 
   return (
     <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: activeColors.textSecondary }]}>{label}</Text>}
       <View style={[
         styles.inputWrapper,
-        isFocused ? styles.inputFocused : null
+        {
+          backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+          borderColor: isFocused ? activeColors.primary : activeColors.border,
+        }
       ]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: activeColors.textPrimary }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={activeColors.textMuted}
           secureTextEntry={shouldSecure}
           keyboardType={keyboardType}
           onFocus={() => setIsFocused(true)}
@@ -52,9 +58,9 @@ export const FormInput = ({
             activeOpacity={0.7}
           >
             {showPassword ? (
-              <EyeOff size={18} color={COLORS.textSecondary} />
+              <EyeOff size={18} color={activeColors.textSecondary} />
             ) : (
-              <Eye size={18} color={COLORS.textSecondary} />
+              <Eye size={18} color={activeColors.textSecondary} />
             )}
           </TouchableOpacity>
         )}

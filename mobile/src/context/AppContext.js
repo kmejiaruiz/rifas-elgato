@@ -86,6 +86,29 @@ export const AppProvider = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [offlineQueue, setOfflineQueue] = useState([]);
 
+  // Control del tema Claro / Oscuro (guardado en almacenamiento persistente)
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const stored = await storage.get('app_theme');
+        if (stored !== null) {
+          setIsDarkMode(stored === 'dark');
+        }
+      } catch (_) {}
+    };
+    loadTheme();
+  }, []);
+
+  const toggleTheme = async () => {
+    try {
+      const newVal = !isDarkMode;
+      setIsDarkMode(newVal);
+      await storage.set('app_theme', newVal ? 'dark' : 'light');
+    } catch (_) {}
+  };
+
   // Pinger para verificar el estado de conexión
   useEffect(() => {
     if (!user) return;
@@ -510,6 +533,8 @@ export const AppProvider = ({ children }) => {
         deleteOfflineSale,
         forceSyncSale,
         syncOfflineDataManual,
+        isDarkMode,
+        toggleTheme,
       }}
     >
       {children}

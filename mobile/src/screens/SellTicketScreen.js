@@ -111,27 +111,32 @@ const FecheaPicker = ({ value, onChange }) => {
 
 // ─── Selector nativo de opciones (para extraFields type=select) ──
 const SelectPicker = ({ value, options, placeholder, onChange }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
   const [open, setOpen] = useState(false);
   const selected = options.find(o => o.value === value);
   return (
     <>
-      <TouchableOpacity style={styles.selectBtn} onPress={() => setOpen(true)}>
-        <Text style={[styles.selectBtnText, !selected && { color: COLORS.textMuted }]}>
+      <TouchableOpacity 
+        style={[styles.selectBtn, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', borderColor: activeColors.border }]} 
+        onPress={() => setOpen(true)}
+      >
+        <Text style={[styles.selectBtnText, { color: selected ? activeColors.textPrimary : activeColors.textMuted }]}>
           {selected ? selected.label : placeholder}
         </Text>
-        <ChevronDown size={14} color={COLORS.textMuted} />
+        <ChevronDown size={14} color={activeColors.textMuted} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={styles.selectOverlay} onPress={() => setOpen(false)} activeOpacity={1}>
-          <View style={styles.selectSheet}>
-            <Text style={styles.selectSheetTitle}>{placeholder}</Text>
+          <View style={[styles.selectSheet, { backgroundColor: activeColors.bgElevated }]}>
+            <Text style={[styles.selectSheetTitle, { color: activeColors.textPrimary }]}>{placeholder}</Text>
             {options.map(opt => (
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.selectOpt, value === opt.value && styles.selectOptActive]}
                 onPress={() => { onChange(opt.value); setOpen(false); }}
               >
-                <Text style={[styles.selectOptText, value === opt.value && styles.selectOptTextActive]}>
+                <Text style={[styles.selectOptText, value === opt.value && styles.selectOptTextActive, { color: value === opt.value ? activeColors.primaryLight : activeColors.textSecondary }]}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
@@ -143,15 +148,17 @@ const SelectPicker = ({ value, options, placeholder, onChange }) => {
   );
 };
 
-// ─── Editor de una jugada ─────────────────────────────────────
 const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, onRemove, showRemove }) => {
+  const { isDarkMode } = useApp();
+  const activeColors = getThemeColors(isDarkMode);
+
   const isBlocked = isFechea
     ? (jugada.fecha && blockedNums.includes(jugada.fecha))
     : (jugada.numero !== '' && blockedNums.includes(String(jugada.numero)));
 
   return (
     <GlassCard style={[styles.jugadaCard, isBlocked && styles.jugadaCardBlocked]}>
-      <Text style={styles.jugadaIndex}>Jugada {index + 1}</Text>
+      <Text style={[styles.jugadaIndex, { color: activeColors.textMuted }]}>Jugada {index + 1}</Text>
 
       {isBlocked && (
         <View style={styles.blockedBadge}>
@@ -164,21 +171,25 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
         {/* Número o Fechea */}
         {isFechea ? (
           <View style={{ flex: 2 }}>
-            <Text style={styles.fieldLabel}>Fecha</Text>
+            <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Fecha</Text>
             <FecheaPicker value={jugada.fecha} onChange={val => onUpdate('fecha', val)} />
           </View>
         ) : (
           <View style={{ flex: 2 }}>
-            <Text style={styles.fieldLabel}>
+            <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>
               {lottery.numberRange ? `${lottery.numberRange.min}–${lottery.numberRange.max}` : 'Número'}
             </Text>
             <TextInput
-              style={[styles.jugadaInput, isBlocked && styles.jugadaInputBlocked]}
+              style={[
+                styles.jugadaInput, 
+                isBlocked && styles.jugadaInputBlocked, 
+                { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }
+              ]}
               value={jugada.numero}
               onChangeText={val => onUpdate('numero', val)}
               keyboardType="numeric"
               placeholder={lottery.numberDigits ? '0'.repeat(lottery.numberDigits) : (lottery.numberRange ? `${lottery.numberRange.min}` : '0')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={activeColors.textMuted}
               textAlign="center"
               maxLength={lottery.numberDigits || 4}
               autoFocus={index === 0}
@@ -188,16 +199,19 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
 
         {/* Monto */}
         <View style={{ flex: 2 }}>
-          <Text style={styles.fieldLabel}>Monto ({lottery.priceLabel?.trim()})</Text>
+          <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Monto ({lottery.priceLabel?.trim()})</Text>
           <View style={styles.amountWrap}>
-            <Text style={styles.currencySymbol}>{lottery.priceLabel}</Text>
+            <Text style={[styles.currencySymbol, { color: activeColors.textMuted }]}>{lottery.priceLabel}</Text>
             <TextInput
-              style={[styles.jugadaInput, { paddingLeft: 36 }]}
+              style={[
+                styles.jugadaInput, 
+                { paddingLeft: 36, backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }
+              ]}
               value={jugada.monto}
               onChangeText={val => onUpdate('monto', val)}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={activeColors.textMuted}
             />
           </View>
         </View>
@@ -215,7 +229,7 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
         <View style={styles.extraFieldsRow}>
           {lottery.extraFields.map(f => (
             <View key={f.key} style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.fieldLabel}>{f.label}</Text>
+              <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>{f.label}</Text>
               {f.type === 'select' ? (
                 <SelectPicker
                   value={jugada[f.key] || ''}
@@ -225,11 +239,14 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
                 />
               ) : (
                 <TextInput
-                  style={styles.jugadaInput}
+                  style={[
+                    styles.jugadaInput,
+                    { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }
+                  ]}
                   value={jugada[f.key] || ''}
                   onChangeText={val => onUpdate(f.key, val)}
                   placeholder={f.label}
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={activeColors.textMuted}
                   keyboardType={f.type === 'number' ? 'numeric' : 'default'}
                 />
               )}
@@ -1067,42 +1084,42 @@ export const SellTicketScreen = ({ onNavigate }) => {
             {/* ─── Editor de rango ──────────────────────────── */}
             {saleMode === 'range' ? (
               <GlassCard style={styles.rangeCard}>
-                <Text style={styles.rangeTitleText}>Definir Rango de Números</Text>
+                <Text style={[styles.rangeTitleText, { color: activeColors.primaryLight }]}>Definir Rango de Números</Text>
                 <View style={styles.rangeRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>Desde</Text>
+                    <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Desde</Text>
                     <TextInput
-                      style={styles.jugadaInput}
+                      style={[styles.jugadaInput, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
                       value={rangeFrom}
                       onChangeText={setRangeFrom}
                       keyboardType="numeric"
                       placeholder={String(lottery.numberRange?.min ?? 0)}
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={activeColors.textMuted}
                       textAlign="center"
                       autoFocus
                     />
                   </View>
                   <View style={{ flex: 1, marginHorizontal: 8 }}>
-                    <Text style={styles.fieldLabel}>Hasta</Text>
+                    <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Hasta</Text>
                     <TextInput
-                      style={styles.jugadaInput}
+                      style={[styles.jugadaInput, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
                       value={rangeTo}
                       onChangeText={setRangeTo}
                       keyboardType="numeric"
                       placeholder={String(lottery.numberRange?.max ?? 99)}
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={activeColors.textMuted}
                       textAlign="center"
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>Monto</Text>
+                    <Text style={[styles.fieldLabel, { color: activeColors.textSecondary }]}>Monto</Text>
                     <TextInput
-                      style={styles.jugadaInput}
+                      style={[styles.jugadaInput, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.5)' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
                       value={rangeMonto}
                       onChangeText={setRangeMonto}
                       keyboardType="numeric"
                       placeholder="0"
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={activeColors.textMuted}
                       textAlign="center"
                     />
                   </View>
@@ -1162,11 +1179,11 @@ export const SellTicketScreen = ({ onNavigate }) => {
 
             {/* ─── Comprador ────────────────────────────────── */}
             <TextInput
-              style={styles.compradorInput}
+              style={[styles.compradorInput, { backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', color: activeColors.textPrimary, borderColor: activeColors.border }]}
               value={comprador}
               onChangeText={setComprador}
               placeholder="Comprador (opcional)"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={activeColors.textMuted}
             />
 
             {/* ─── Checkout ─────────────────────────────────── */}

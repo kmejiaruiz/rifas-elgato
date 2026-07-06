@@ -382,20 +382,20 @@ export const SettingsScreen = ({ onNavigate }) => {
 
         {/* ─── Estado actual del servidor ─────────────────────── */}
         <GlassCard style={styles.card}>
-          <Text style={styles.sectionTitle}>Estado del Sistema</Text>
+          <Text style={[styles.sectionTitle, { color: activeColors.textPrimary }]}>Estado del Sistema</Text>
 
           <View style={styles.statusRow}>
             <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Negocio</Text>
-              <Text style={styles.statusValue} numberOfLines={1}>{settings.businessName}</Text>
+              <Text style={[styles.statusLabel, { color: activeColors.textMuted }]}>Negocio</Text>
+              <Text style={[styles.statusValue, { color: activeColors.textPrimary }]} numberOfLines={1}>{settings.businessName}</Text>
             </View>
             <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Moneda</Text>
-              <Text style={[styles.statusValue, { color: COLORS.primaryLight }]}>{settings.currency}</Text>
+              <Text style={[styles.statusLabel, { color: activeColors.textMuted }]}>Moneda</Text>
+              <Text style={[styles.statusValue, { color: activeColors.primaryLight }]}>{settings.currency}</Text>
             </View>
             <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Cierre</Text>
-              <Text style={styles.statusValue}>{settings.drawCloseMinutes}min</Text>
+              <Text style={[styles.statusLabel, { color: activeColors.textMuted }]}>Cierre</Text>
+              <Text style={[styles.statusValue, { color: activeColors.textPrimary }]}>{settings.drawCloseMinutes}min</Text>
             </View>
           </View>
 
@@ -407,20 +407,20 @@ export const SettingsScreen = ({ onNavigate }) => {
           )}
 
           <View style={styles.lotteryList}>
-            <Text style={styles.statusLabel}>Juegos activos ({lotteries.filter(l => l.enabled !== false).length})</Text>
+            <Text style={[styles.statusLabel, { color: activeColors.textMuted }]}>Juegos activos ({lotteries.filter(l => l.enabled !== false).length})</Text>
             <View style={styles.lotteryChips}>
               {lotteries.filter(l => l.enabled !== false).map(l => (
-                <View key={l.id} style={styles.lotteryChip}>
+                <View key={l.id} style={[styles.lotteryChip, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: activeColors.border }]}>
                   {l.emoji ? <Text style={{ fontSize: 12 }}>{l.emoji}</Text> : null}
-                  <Text style={styles.lotteryChipText}>{l.name}</Text>
+                  <Text style={[styles.lotteryChipText, { color: activeColors.textSecondary }]}>{l.name}</Text>
                 </View>
               ))}
             </View>
           </View>
 
           <TouchableOpacity style={styles.syncBtn} onPress={handleSync} activeOpacity={0.8}>
-            <RefreshCw size={15} color={COLORS.primaryLight} />
-            <Text style={styles.syncBtnText}>Sincronizar datos ahora</Text>
+            <RefreshCw size={15} color={activeColors.primaryLight} />
+            <Text style={[styles.syncBtnText, { color: activeColors.primaryLight }]}>Sincronizar datos ahora</Text>
           </TouchableOpacity>
         </GlassCard>
 
@@ -527,8 +527,8 @@ export const SettingsScreen = ({ onNavigate }) => {
         {/* ─── Identidad Comercial (Sólo visible a Admin/Root) ── */}
         {isAdmin && (
           <GlassCard style={styles.card}>
-            <Text style={styles.sectionTitle}>Identidad Comercial</Text>
-            <Text style={styles.sectionDesc}>
+            <Text style={[styles.sectionTitle, { color: activeColors.textPrimary }]}>Identidad Comercial</Text>
+            <Text style={[styles.sectionDesc, { color: activeColors.textSecondary }]}>
               Estos valores se guardan en el servidor y son compartidos entre la app web y la app móvil.
             </Text>
 
@@ -552,8 +552,8 @@ export const SettingsScreen = ({ onNavigate }) => {
         {isAdmin && (
           <GlassCard style={styles.card}>
             <View style={styles.sectionHeaderRow}>
-              <Clock size={15} color={COLORS.primaryLight} />
-              <Text style={styles.sectionTitleInline}>Parámetros del Sorteo</Text>
+              <Clock size={15} color={activeColors.primaryLight} />
+              <Text style={[styles.sectionTitleInline, { color: activeColors.textPrimary }]}>Parámetros del Sorteo</Text>
             </View>
 
             <FormInput
@@ -563,7 +563,7 @@ export const SettingsScreen = ({ onNavigate }) => {
               placeholder="10"
               keyboardType="numeric"
             />
-            <Text style={styles.fieldHint}>
+            <Text style={[styles.fieldHint, { color: activeColors.textMuted }]}>
               Se bloquea la venta {drawCloseMinutes} minutos antes de la hora del sorteo.
             </Text>
           </GlassCard>

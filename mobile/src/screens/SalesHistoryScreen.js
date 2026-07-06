@@ -636,7 +636,7 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
             {/* Info */}
             <View style={styles.saleInfo}>
               <View style={styles.saleTitleRow}>
-                <Text style={styles.saleName}>
+                <Text style={[styles.saleName, { color: activeColors.textPrimary }]}>
                   {lottery?.name} {item.horaSorteo || item.hora_sorteo ? `(${formatHourAmPm(item.horaSorteo || item.hora_sorteo)})` : ''}
                 </Text>
                 <View style={[styles.statusBadge, isCancelled ? styles.badgeCancelled : hasWinner ? styles.badgeWinner : styles.badgeActive]}>
@@ -657,7 +657,7 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
                   </View>
                 )}
               </View>
-              <Text style={styles.saleSub}>
+              <Text style={[styles.saleSub, { color: activeColors.textSecondary }]}>
                 {lines.length} {lines.length === 1 ? 'jugada' : 'jugadas'}
                 {item.comprador ? ` · ${item.comprador}` : ''}
                 {' · '}{formatTimeShort(item.createdAt || item.created_at)}
@@ -670,6 +670,7 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
                 styles.saleMonto,
                 isCancelled && styles.salemontoCancelled,
                 hasWinner && !isCancelled && styles.salemontOwinner,
+                { color: activeColors.textPrimary }
               ]}>
                 {lottery?.priceLabel}{parseFloat(item.monto || 0).toFixed(2)}
               </Text>
@@ -679,8 +680,8 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
                 </Text>
               )}
               {isExpanded
-                ? <ChevronUp size={13} color={COLORS.textMuted} />
-                : <ChevronDown size={13} color={COLORS.textMuted} />}
+                ? <ChevronUp size={13} color={activeColors.textMuted} />
+                : <ChevronDown size={13} color={activeColors.textMuted} />}
             </View>
           </View>
 
@@ -827,18 +828,18 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
       {/* Filtros */}
       <View style={styles.filtersSection}>
         {/* Búsqueda */}
-        <View style={styles.searchBar}>
-          <Search size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+        <View style={[styles.searchBar, { backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderColor: activeColors.border }]}>
+          <Search size={16} color={activeColors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: activeColors.textPrimary }]}
             value={filters.search}
             onChangeText={v => setFilters(f => ({ ...f, search: v }))}
             placeholder="Buscar por número, comprador..."
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={activeColors.textMuted}
           />
           {filters.search ? (
             <TouchableOpacity onPress={() => setFilters(f => ({ ...f, search: '' }))}>
-              <X size={14} color={COLORS.textMuted} />
+              <X size={14} color={activeColors.textMuted} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -846,13 +847,13 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
         {/* Filtro de fecha + juego */}
         <View style={styles.filterRow}>
           <View style={styles.filterDateWrap}>
-            <Text style={styles.filterLabel}>Fecha</Text>
+            <Text style={[styles.filterLabel, { color: activeColors.textSecondary }]}>Fecha</Text>
             <TouchableOpacity
-              style={[styles.filterDateInput, { justifyContent: 'center' }]}
+              style={[styles.filterDateInput, { justifyContent: 'center', backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', borderColor: activeColors.border }]}
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 12, color: filters.date ? '#fff' : COLORS.textMuted }}>
+              <Text style={{ fontSize: 12, color: filters.date ? activeColors.textPrimary : activeColors.textMuted }}>
                 {filters.date || 'YYYY-MM-DD'}
               </Text>
             </TouchableOpacity>
@@ -875,15 +876,15 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
             )}
           </View>
           <View style={styles.filterGameWrap}>
-            <Text style={styles.filterLabel}>Juego</Text>
+            <Text style={[styles.filterLabel, { color: activeColors.textSecondary }]}>Juego</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
               {[{ id: '', name: 'Todos' }, ...lotteries].map(l => (
                 <TouchableOpacity
                   key={l.id}
-                  style={[styles.filterChip, filters.lotteryId === l.id && styles.filterChipActive]}
+                  style={[styles.filterChip, filters.lotteryId === l.id && styles.filterChipActive, { backgroundColor: filters.lotteryId === l.id ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }]}
                   onPress={() => setFilters(f => ({ ...f, lotteryId: l.id }))}
                 >
-                  <Text style={[styles.filterChipText, filters.lotteryId === l.id && styles.filterChipTextActive]}>
+                  <Text style={[styles.filterChipText, filters.lotteryId === l.id && styles.filterChipTextActive, { color: filters.lotteryId === l.id ? '#ffffff' : activeColors.textSecondary }]}>
                     {l.name}
                   </Text>
                 </TouchableOpacity>
@@ -897,7 +898,7 @@ export const SalesHistoryScreen = ({ onNavigate }) => {
           {STATUS_FILTERS.map(({ val, label }) => (
             <TouchableOpacity
               key={val}
-              style={[styles.statusChip, filters.status === val && styles.statusChipActive]}
+              style={[styles.statusChip, filters.status === val && styles.statusChipActive, { backgroundColor: filters.status === val ? activeColors.primary : (isDarkMode ? '#1f2937' : '#ffffff'), borderColor: activeColors.border, borderWidth: 1 }]}
               onPress={() => setFilters(f => ({ ...f, status: val }))}
             >
               <Text style={[styles.statusChipText, filters.status === val && styles.statusChipTextActive]}>

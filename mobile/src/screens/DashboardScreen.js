@@ -20,10 +20,90 @@ const SCREEN_W = Dimensions.get('window').width;
 const formatCurrency = (amount, currency = 'NIO') =>
   `${currency} ${parseFloat(amount || 0).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const SkeletonBox = ({ style }) => {
+  const pulseAnim = React.useRef(new Animated.Value(0.3)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.7,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          borderRadius: 8,
+        },
+        style,
+        { opacity: pulseAnim },
+      ]}
+    />
+  );
+};
+
+const DashboardSkeleton = ({ activeColors }) => {
+  return (
+    <View style={[styles.container, { backgroundColor: activeColors.bgBase, flex: 1, paddingTop: 16 }]}>
+      {/* Cabecera */}
+      <View style={[styles.header, { borderBottomWidth: 0, paddingBottom: 12, paddingHorizontal: 16 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <SkeletonBox style={{ width: 40, height: 40, borderRadius: 20 }} />
+          <View style={{ gap: 6 }}>
+            <SkeletonBox style={{ width: 120, height: 16 }} />
+            <SkeletonBox style={{ width: 70, height: 12 }} />
+          </View>
+        </View>
+        <SkeletonBox style={{ width: 90, height: 26, borderRadius: 12 }} />
+      </View>
+
+      {/* Resumen de Hoy */}
+      <View style={{ marginTop: 8, paddingHorizontal: 16 }}>
+        <SkeletonBox style={{ width: 110, height: 16, marginBottom: 12 }} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <SkeletonBox style={{ flex: 1, height: 80, borderRadius: 12 }} />
+          <SkeletonBox style={{ flex: 1, height: 80, borderRadius: 12 }} />
+          <SkeletonBox style={{ flex: 1, height: 80, borderRadius: 12 }} />
+        </View>
+      </View>
+
+      {/* Carrusel */}
+      <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+        <SkeletonBox style={{ width: 140, height: 16, marginBottom: 12 }} />
+        <SkeletonBox style={{ width: '100%', height: 160, borderRadius: 16 }} />
+      </View>
+
+      {/* Resultados */}
+      <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+        <SkeletonBox style={{ width: 120, height: 16, marginBottom: 12 }} />
+        <SkeletonBox style={{ width: '100%', height: 110, borderRadius: 16 }} />
+      </View>
+    </View>
+  );
+};
+
 export const DashboardScreen = ({ onNavigate, onOpenSidebar, profileImage }) => {
   const { user, logout } = useAuth();
   const { dailySummary, settings, loading, loadAllData, lotteries, sales, isServerConnected, isDarkMode } = useApp();
   const activeColors = getThemeColors(isDarkMode);
+
+  const isFirstLoad = loading && (!dailySummary || dailySummary.ventasHoy === undefined);
+
+  if (isFirstLoad) {
+    return <DashboardSkeleton activeColors={activeColors} />;
+  }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'root';
   const currency = settings.currency || 'NIO';

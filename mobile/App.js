@@ -1117,7 +1117,7 @@ const AppContent = () => {
                 ZENTRIC MOBILE
               </Text>
               <Text style={{ fontSize: 9, color: activeColors.textMuted, marginTop: 2 }}>
-                Versión 1.1[beta]
+                Versión 1.14[beta]
               </Text>
             </View>
           </Animated.View>

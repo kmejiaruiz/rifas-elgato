@@ -1,9 +1,6 @@
 name: Build Android APK (v1.14[beta])
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:

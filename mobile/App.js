@@ -8,11 +8,12 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { COLORS, getThemeColors } from './src/styles/theme';
-import { Home, Ticket, History, Settings, ShieldAlert, Trophy, User, LogOut, Key, Sun, Moon, Camera, Info, X } from 'lucide-react-native';
+import { Home, Ticket, History, Settings, ShieldAlert, Trophy, User, LogOut, Key, Sun, Moon, Camera, Info, X, RefreshCw } from 'lucide-react-native';
 import { CustomAlert } from './src/components/CustomAlert';
 import { api } from './src/services/apiService';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
+import * as Updates from 'expo-updates';
 import { storage } from './src/services/storageService';
 import { FormInput } from './src/components/FormInput';
 
@@ -117,6 +118,80 @@ const AppContent = () => {
       loadAvatar();
     }
   }, [user]);
+
+  // --- Control de Actualizaciones OTA (expo-updates) ---
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+  const checkUpdatesBackground = async () => {
+    if (__DEV__) return;
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        const fetchResult = await Updates.fetchUpdateAsync();
+        if (fetchResult.isNew) {
+          Alert.alert(
+            "Actualización Lista 🚀",
+            "Se ha descargado una nueva versión de la aplicación. ¿Deseas reiniciar la aplicación ahora para aplicar los cambios?",
+            [
+              { text: "Más tarde", style: "cancel" },
+              { 
+                text: "Reiniciar Ahora", 
+                onPress: async () => {
+                  await Updates.reloadAsync();
+                } 
+              }
+            ]
+          );
+        }
+      }
+    } catch (err) {
+      console.log("Error buscando actualización automática:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    checkUpdatesBackground();
+  }, []);
+
+  const checkUpdatesManual = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      if (__DEV__) {
+        Alert.alert("Modo Desarrollo", "Las actualizaciones OTA no están activas en el entorno de desarrollo local.");
+        setIsCheckingUpdate(false);
+        return;
+      }
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        const fetchResult = await Updates.fetchUpdateAsync();
+        if (fetchResult.isNew) {
+          Alert.alert(
+            "Actualización Lista 🚀",
+            "Se ha descargado e instalado la nueva versión de Zentric. ¿Reiniciar la aplicación ahora?",
+            [
+              { text: "Más tarde", style: "cancel" },
+              { 
+                text: "Reiniciar Ahora", 
+                onPress: async () => {
+                  await Updates.reloadAsync();
+                } 
+              }
+            ]
+          );
+        } else {
+          Alert.alert("Actualización", "La actualización fue descargada pero no es nueva.");
+        }
+      } else {
+        Alert.alert("Actualizado ✅", "Ya cuentas con la versión más reciente de la aplicación.");
+      }
+    } catch (err) {
+      Alert.alert("Error de Conexión", "No se pudo conectar al servidor de actualizaciones. Por favor verifica tu conexión a internet.");
+      console.log("Error buscando actualización manual:", err);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
 
   const pickProfileImage = async () => {
     try {
@@ -986,6 +1061,22 @@ const AppContent = () => {
                   <View style={styles.themeSwitchThumb} />
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={[styles.sidebarItem, { borderBottomColor: activeColors.border }]}
+                onPress={checkUpdatesManual}
+                disabled={isCheckingUpdate}
+                activeOpacity={0.7}
+              >
+                {isCheckingUpdate ? (
+                  <ActivityIndicator size="small" color={activeColors.primaryLight} style={styles.sidebarIcon} />
+                ) : (
+                  <RefreshCw size={18} color={activeColors.primaryLight} style={styles.sidebarIcon} />
+                )}
+                <Text style={[styles.sidebarText, { color: activeColors.textPrimary }]}>
+                  {isCheckingUpdate ? 'Buscando actualizaciones...' : 'Buscar Actualizaciones'}
+                </Text>
+              </TouchableOpacity>
 
               {/* Info de la App */}
               <View style={[styles.sidebarItemInfo, { borderBottomColor: activeColors.border }]}>

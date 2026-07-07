@@ -1038,29 +1038,7 @@ const AppContent = () => {
                 <Text style={[styles.sidebarText, { color: activeColors.textPrimary }]}>Editar Contraseña</Text>
               </TouchableOpacity>
 
-              <View style={[styles.sidebarItem, { borderBottomColor: activeColors.border, justifyContent: 'space-between' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {isDarkMode ? (
-                    <Moon size={18} color="#fbbf24" style={styles.sidebarIcon} />
-                  ) : (
-                    <Sun size={18} color="#f59e0b" style={styles.sidebarIcon} />
-                  )}
-                  <Text style={[styles.sidebarText, { color: activeColors.textPrimary }]}>Modo Oscuro</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={toggleTheme}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.themeSwitchTrack,
-                    {
-                      backgroundColor: isDarkMode ? activeColors.primary : '#d1d5db',
-                      alignItems: isDarkMode ? 'flex-end' : 'flex-start',
-                    },
-                  ]}
-                >
-                  <View style={styles.themeSwitchThumb} />
-                </TouchableOpacity>
-              </View>
+
 
               <TouchableOpacity
                 style={[styles.sidebarItem, { borderBottomColor: activeColors.border }]}

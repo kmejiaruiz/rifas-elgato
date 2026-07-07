@@ -16,31 +16,37 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js environment
+      # 2. Setup pnpm package manager
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # 3. Setup Node.js environment with pnpm caching
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: mobile/package.json
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
 
-      # 3. Setup Java Development Kit (JDK) for Android build
+      # 4. Setup Java Development Kit (JDK) for Android build
       - name: ☕ Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4. Install dependencies inside mobile folder
+      # 5. Install dependencies inside mobile folder using pnpm
       - name: 📦 Install Dependencies
         working-directory: mobile
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
-      # 5. Install Expo and EAS CLI globally
+      # 6. Install Expo and EAS CLI globally
       - name: 🛠️ Install EAS CLI
         run: npm install -g eas-cli
 
-      # 6. Setup Expo Credentials Token (For EAS services / updates matching)
+      # 7. Setup Expo Credentials Token (For EAS services / updates matching)
       - name: 🔑 Setup Expo Token
         uses: expo/expo-github-action@v8
         with:
@@ -48,7 +54,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # 7. Compile APK using EAS Build (Cloud Runner)
+      # 8. Compile APK using EAS Build (Cloud Runner)
       # Nota: Se compila usando el profile 'preview' para generar el archivo APK instalable.
       - name: 🚀 Build APK via EAS
         working-directory: mobile

@@ -127,8 +127,10 @@ export const SettingsScreen = ({ onNavigate }) => {
     progressText: '',
   });
 
-  const buildImageUrl = React.useCallback((url) => {
-    if (!url) return url;
+  const buildImageUrl = React.useCallback((item) => {
+    if (!item) return '';
+    const url = typeof item === 'object' && item !== null ? item.url : item;
+    if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     try {
       const apiBase = getApiUrl();
@@ -137,6 +139,30 @@ export const SettingsScreen = ({ onNavigate }) => {
       return host + url;
     } catch { return url; }
   }, []);
+
+  const handleUpdateSlideField = (index, field, value) => {
+    const updated = [...carouselImages];
+    const item = updated[index];
+    if (typeof item === 'string') {
+      updated[index] = { type: 'image', url: item, title: '', subtitle: '' };
+    } else if (typeof item === 'object' && item !== null) {
+      updated[index] = { ...item };
+    } else {
+      updated[index] = {};
+    }
+    updated[index][field] = value;
+    setCarouselImages(updated);
+  };
+
+  const handleAddTextSlide = () => {
+    const newSlide = {
+      type: 'text',
+      title: 'Título del Anuncio',
+      subtitle: 'Descripción o mensaje',
+      background: '#6366f1'
+    };
+    setCarouselImages([...carouselImages, newSlide]);
+  };
 
 
   // Cargar campos inicialmente al montar la pantalla
@@ -229,7 +255,13 @@ export const SettingsScreen = ({ onNavigate }) => {
         throw new Error(data.error || 'Error al subir la imagen.');
       }
 
-      const newImages = [...carouselImages, data.url];
+      const newSlide = {
+        type: 'image',
+        url: data.url,
+        title: '',
+        subtitle: ''
+      };
+      const newImages = [...carouselImages, newSlide];
       setCarouselImages(newImages);
       setLocalPreviewUri(null);
       Alert.alert('Éxito', 'Imagen seleccionada. Recuerde presionar "Guardar Ajustes" al final.');
@@ -580,41 +612,110 @@ export const SettingsScreen = ({ onNavigate }) => {
               💡 Recomendado: Usar imágenes panorámicas de proporción 21:9 (Ej: 1200 x 500 px) para evitar recortes drásticos.
             </Text>
 
-            {/* Vista previa en fila/envoltura */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 12 }}>
-              {carouselImages.map((url, idx) => (
-                <View key={idx} style={{ position: 'relative', width: 70, height: 70, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                  <Image source={{ uri: buildImageUrl(url) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                  <TouchableOpacity 
-                    onPress={() => handleDeleteImage(idx)}
-                    style={{
-                      position: 'absolute', top: 2, right: 2,
-                      width: 18, height: 18, borderRadius: 9,
-                      backgroundColor: 'rgba(239,68,68,0.9)',
-                      alignItems: 'center', justifyContent: 'center',
-                      zIndex: 10,
+            {/* Lista de diapositivas */}
+            <View style={{ marginVertical: 12, gap: 14 }}>
+              {carouselImages.map((item, idx) => {
+                const isObject = typeof item === 'object' && item !== null;
+                const type = isObject ? (item.type || (item.url ? 'image' : 'text')) : 'image';
+                const title = isObject ? (item.title || '') : '';
+                const subtitle = isObject ? (item.subtitle || '') : '';
+                const background = isObject ? (item.background || '#7c3aed') : '#7c3aed';
+
+                return (
+                  <View 
+                    key={idx} 
+                    style={{ 
+                      flexDirection: 'row', 
+                      backgroundColor: 'rgba(255,255,255,0.02)', 
+                      borderRadius: 12, 
+                      borderWidth: 1, 
+                      borderColor: 'rgba(255,255,255,0.06)', 
+                      padding: 10,
+                      gap: 12,
+                      alignItems: 'center'
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold', lineHeight: 12 }}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                    {/* Miniatura */}
+                    <View style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      {type === 'image' ? (
+                        <Image source={{ uri: buildImageUrl(item) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : (
+                        <View style={{ width: '100%', height: '100%', backgroundColor: background, justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>TXT</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Campos de texto */}
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <TextInput
+                        value={title}
+                        onChangeText={(val) => handleUpdateSlideField(idx, 'title', val)}
+                        placeholder="Título de la diapositiva"
+                        placeholderTextColor="#6b7280"
+                        style={{ color: '#fff', fontSize: 13, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+                      />
+                      <TextInput
+                        value={subtitle}
+                        onChangeText={(val) => handleUpdateSlideField(idx, 'subtitle', val)}
+                        placeholder="Subtítulo / Mensaje"
+                        placeholderTextColor="#6b7280"
+                        style={{ color: '#d1d5db', fontSize: 11, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+                      />
+                      {type === 'text' && (
+                        <TextInput
+                          value={background}
+                          onChangeText={(val) => handleUpdateSlideField(idx, 'background', val)}
+                          placeholder="Color Hex (ej: #7c3aed)"
+                          placeholderTextColor="#6b7280"
+                          style={{ color: '#a78bfa', fontSize: 10, paddingVertical: 3, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+                        />
+                      )}
+                    </View>
+
+                    {/* Eliminar */}
+                    <TouchableOpacity 
+                      onPress={() => handleDeleteImage(idx)}
+                      style={{
+                        width: 24, height: 24, borderRadius: 12,
+                        backgroundColor: 'rgba(239,68,68,0.15)',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ color: '#f87171', fontSize: 12, fontWeight: 'bold', lineHeight: 14 }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+
               {carouselImages.length === 0 && (
-                <Text style={{ fontSize: 12, color: COLORS.textMuted, fontStyle: 'italic' }}>
-                  No hay imágenes en el carrusel.
+                <Text style={{ fontSize: 12, color: COLORS.textMuted, fontStyle: 'italic', marginVertical: 8 }}>
+                  No hay diapositivas en el carrusel.
                 </Text>
               )}
             </View>
 
-             <TouchableOpacity 
-              style={[styles.testBtn, { width: 140, height: 36, marginTop: 4 }]} 
-              onPress={handleSelectImage}
-              activeOpacity={0.8}
-            >
-              <View style={styles.btnInner}>
-                <Text style={styles.testBtnText}>Seleccionar Imagen</Text>
-              </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              <TouchableOpacity 
+                style={[styles.testBtn, { flex: 1, height: 38 }]} 
+                onPress={handleSelectImage}
+                activeOpacity={0.8}
+              >
+                <View style={styles.btnInner}>
+                  <Text style={styles.testBtnText}>Seleccionar Imagen</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.testBtn, { flex: 1, height: 38, backgroundColor: 'rgba(124, 58, 237, 0.15)', borderColor: 'rgba(124, 58, 237, 0.3)' }]} 
+                onPress={handleAddTextSlide}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.btnInner, { backgroundColor: 'transparent' }]}>
+                  <Text style={[styles.testBtnText, { color: '#c084fc' }]}>Agregar Diapositiva de Texto</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
 
             {/* Vista previa real dinámica */}
             {localPreviewUri && (

@@ -3,7 +3,7 @@
 // ============================================================
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
-import { LogIn, Server, Lock, ShieldCheck } from 'lucide-react-native';
+import { LogIn, Server, Lock, ShieldCheck, CheckCircle2 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, setApiUrl } from '../services/apiService';
 import { COLORS, RADIUS, SHADOWS } from '../styles/theme';
@@ -80,50 +80,58 @@ export const LoginScreen = () => {
           <TouchableOpacity 
             onLongPress={handleLogoLongPress} 
             delayLongPress={3000} 
-            activeOpacity={0.9}
-            style={styles.logoWrapper}
+            activeOpacity={0.95}
+            style={styles.logoOuterWrapper}
           >
-            <Image
-              source={require('../../assets/app_logo.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <View style={styles.logoInnerWrapper}>
+              <Image
+                source={require('../../assets/app_logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
           </TouchableOpacity>
-          <Text style={styles.title}>Zentric</Text>
-          <Text style={styles.subtitle}>Inicie sesión para continuar</Text>
+          
+          <Text style={styles.brandTitle}>ZENTRIC</Text>
+          <Text style={styles.brandSubtitle}>TERMINAL DE VENTAS MÓVIL</Text>
         </View>
 
         {/* Tarjeta de Formulario con Glow en Borde */}
         <View style={styles.cardContainer}>
           <GlassCard style={styles.formCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.iconCircle}>
-                <Lock size={18} color="#a78bfa" />
+            {/* Indicador de conexión segura */}
+            <View style={styles.secureBadgeRow}>
+              <View style={styles.secureBadge}>
+                <CheckCircle2 size={12} color="#10b981" />
+                <Text style={styles.secureBadgeText}>CONEXIÓN SEGURA SSL</Text>
               </View>
-              <Text style={styles.cardTitle}>Acceso de Vendedor</Text>
             </View>
 
-            <FormInput
-              label="Usuario"
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Ingrese su usuario"
-              autoCapitalize="none"
-            />
+            <View style={styles.inputContainer}>
+              <FormInput
+                label="Usuario de Vendedor"
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Ingrese su usuario"
+                autoCapitalize="none"
+              />
+            </View>
 
-            <FormInput
-              label="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              secureTextEntry
-            />
+            <View style={styles.inputContainer}>
+              <FormInput
+                label="Contraseña"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                secureTextEntry
+              />
+            </View>
 
             {showConfig && (
               <View style={styles.configContainer}>
                 <View style={styles.divider} />
                 <FormInput
-                  label="Dirección del Servidor API"
+                  label="Servidor de Producción (API)"
                   value={apiUrl}
                   onChangeText={setApiUrlInput}
                   placeholder="http://192.168.1.100/app"
@@ -143,11 +151,13 @@ export const LoginScreen = () => {
             {showConfig && (
               <View style={styles.supportBadge}>
                 <ShieldCheck size={12} color="#10b981" />
-                <Text style={styles.supportText}>Servidor Personalizado Desbloqueado</Text>
+                <Text style={styles.supportText}>Servidor Personalizado Activo</Text>
               </View>
             )}
           </GlassCard>
         </View>
+
+        <Text style={styles.footerText}>Zentric Engine v1.14[beta] • Conexión Cifrada</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -156,7 +166,7 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070915', // Ultra dark premium background
+    backgroundColor: '#070915', // Fondo premium ultra oscuro
   },
   scrollContent: {
     flexGrow: 1,
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(139, 92, 246, 0.12)', // Subtle Violet Glow
+    backgroundColor: 'rgba(124, 58, 237, 0.08)', // Glow Violeta sutil
   },
   neonOrbBottom: {
     position: 'absolute',
@@ -181,77 +191,89 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)', // Subtle Blue Glow
+    backgroundColor: 'rgba(59, 130, 246, 0.06)', // Glow Azul sutil
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  logoWrapper: {
-    width: 90,
-    height: 90,
-    borderRadius: 28,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(167, 139, 250, 0.18)',
+  logoOuterWrapper: {
+    padding: 3,
+    borderRadius: 36,
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.25)',
+    marginBottom: 16,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  logoInnerWrapper: {
+    width: 96,
+    height: 96,
+    borderRadius: 32,
+    backgroundColor: '#0f172a',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#a78bfa',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 6,
   },
   logoImage: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
   },
-  title: {
-    fontSize: 26,
+  brandTitle: {
+    fontSize: 28,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 2,
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#9ca3af',
+  brandSubtitle: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#a78bfa',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   cardContainer: {
     width: '100%',
     maxWidth: 380,
     borderRadius: RADIUS.xl,
-    padding: 1, // Border highlight spacer
-    backgroundColor: 'rgba(167, 139, 250, 0.08)', // Ambient border glow
+    padding: 1, // Glow sutil del borde
+    backgroundColor: 'rgba(124, 58, 237, 0.08)',
   },
   formCard: {
     width: '100%',
     paddingVertical: 24,
     paddingHorizontal: 22,
     borderRadius: RADIUS.xl,
-    backgroundColor: 'rgba(17, 24, 39, 0.72)', // Transparent dark glass
+    backgroundColor: 'rgba(17, 24, 39, 0.75)', // Cristal oscuro translúcido
   },
-  cardHeader: {
+  secureBadgeRow: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  secureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
-    gap: 8,
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(167, 139, 250, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontSize: 14,
+  secureBadgeText: {
+    fontSize: 9.5,
     fontWeight: '800',
-    color: '#e5e7eb',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#34d399',
+    letterSpacing: 0.8,
+  },
+  inputContainer: {
+    marginBottom: 12,
+    width: '100%',
   },
   loginBtn: {
     marginTop: 18,
@@ -266,7 +288,7 @@ const styles = StyleSheet.create({
   },
   configContainer: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 6,
   },
   divider: {
     height: 1,
@@ -284,5 +306,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#10b981',
     fontWeight: '800',
+  },
+  footerText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.25)',
+    marginTop: 32,
+    letterSpacing: 0.5,
   },
 });

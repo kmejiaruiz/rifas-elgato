@@ -93,7 +93,15 @@ export const DashboardScreen = ({ onNavigate, onOpenSidebar, profileImage }) => 
 
   const slidesToRender = React.useMemo(() => {
     return carouselImages.length > 0
-      ? carouselImages.map(url => ({ type: 'image', url: buildImageUrl(url) }))
+      ? carouselImages.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            return {
+              ...item,
+              url: item.url ? buildImageUrl(item.url) : null
+            };
+          }
+          return { type: 'image', url: buildImageUrl(item) };
+        })
       : defaultSlides;
   }, [carouselImages, defaultSlides, buildImageUrl]);
 

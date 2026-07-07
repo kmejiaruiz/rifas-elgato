@@ -280,6 +280,79 @@ export const DashboardScreen = ({ onNavigate, onOpenSidebar, profileImage }) => 
         )}
       </GlassCard>
 
+      {/* ─── Carrusel de anuncios (Animated sliding) ─────────── */}
+      {slidesToRender.length > 0 && (
+        <>
+          <Text style={[styles.sectionTitle, { color: activeColors.textSecondary }]}>Anuncios y Promociones</Text>
+          <View style={styles.carouselWrapper}>
+            {/* Sliding strip */}
+            <Animated.View
+              style={[
+                styles.carouselStrip,
+                { width: SCREEN_W * slidesToRender.length, transform: [{ translateX: slideAnim }] },
+              ]}
+            >
+              {slidesToRender.map((slide, idx) => (
+                <View key={idx} style={[styles.carouselSlide, { width: SCREEN_W }]}>
+                  {slide.type === 'image' ? (
+                    <View style={{ width: '100%', height: '100%', position: 'relative' }}>
+                      <Image
+                        source={{ uri: slide.url }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                      {(slide.title || slide.subtitle) && (
+                        <View style={styles.carouselTextOverlay}>
+                          {slide.title ? <Text style={styles.carouselOverlayTitle}>{slide.title}</Text> : null}
+                          {slide.subtitle ? <Text style={styles.carouselOverlaySubtitle}>{slide.subtitle}</Text> : null}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={[styles.carouselDefaultSlide, { backgroundColor: slide.background || '#6366f1' }]}>
+                      <Text style={styles.carouselDefaultTitle}>{slide.title}</Text>
+                      <Text style={styles.carouselDefaultSubtitle}>{slide.subtitle}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </Animated.View>
+
+            {/* Prev / Next arrows */}
+            {slidesToRender.length > 1 && (
+              <>
+                <TouchableOpacity
+                  style={[styles.carouselArrow, styles.carouselArrowLeft]}
+                  onPress={() => goToSlide((carouselIndex - 1 + slidesToRender.length) % slidesToRender.length)}
+                  activeOpacity={0.7}
+                >
+                  <ChevronLeft size={18} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.carouselArrow, styles.carouselArrowRight]}
+                  onPress={() => goToSlide((carouselIndex + 1) % slidesToRender.length)}
+                  activeOpacity={0.7}
+                >
+                  <ChevronRight size={18} color="#fff" />
+                </TouchableOpacity>
+
+                {/* Dot indicators */}
+                <View style={styles.carouselIndicators}>
+                  {slidesToRender.map((_, idx) => (
+                    <TouchableOpacity key={idx} onPress={() => goToSlide(idx)}>
+                      <View style={[
+                        styles.indicatorDot,
+                        carouselIndex === idx ? styles.indicatorActive : styles.indicatorInactive
+                      ]} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        </>
+      )}
+
       {/* ─── Resultados Recientes ────────────────────────────── */}
       {!loading && results && results.length > 0 && (
         <>
@@ -374,70 +447,6 @@ export const DashboardScreen = ({ onNavigate, onOpenSidebar, profileImage }) => 
         </>
       )}
 
-      {/* ─── Carrusel de anuncios (Animated sliding) ─────────── */}
-      {slidesToRender.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Anuncios y Promociones</Text>
-          <View style={styles.carouselWrapper}>
-            {/* Sliding strip */}
-            <Animated.View
-              style={[
-                styles.carouselStrip,
-                { width: SCREEN_W * slidesToRender.length, transform: [{ translateX: slideAnim }] },
-              ]}
-            >
-              {slidesToRender.map((slide, idx) => (
-                <View key={idx} style={[styles.carouselSlide, { width: SCREEN_W }]}>
-                  {slide.type === 'image' ? (
-                    <Image
-                      source={{ uri: slide.url }}
-                      style={{ width: '100%', height: '100%' }}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.carouselDefaultSlide, { backgroundColor: slide.background }]}>
-                      <Text style={styles.carouselDefaultTitle}>{slide.title}</Text>
-                      <Text style={styles.carouselDefaultSubtitle}>{slide.subtitle}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </Animated.View>
-
-            {/* Prev / Next arrows */}
-            {slidesToRender.length > 1 && (
-              <>
-                <TouchableOpacity
-                  style={[styles.carouselArrow, styles.carouselArrowLeft]}
-                  onPress={() => goToSlide((carouselIndex - 1 + slidesToRender.length) % slidesToRender.length)}
-                  activeOpacity={0.7}
-                >
-                  <ChevronLeft size={18} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.carouselArrow, styles.carouselArrowRight]}
-                  onPress={() => goToSlide((carouselIndex + 1) % slidesToRender.length)}
-                  activeOpacity={0.7}
-                >
-                  <ChevronRight size={18} color="#fff" />
-                </TouchableOpacity>
-
-                {/* Dot indicators */}
-                <View style={styles.carouselIndicators}>
-                  {slidesToRender.map((_, idx) => (
-                    <TouchableOpacity key={idx} onPress={() => goToSlide(idx)}>
-                      <View style={[
-                        styles.indicatorDot,
-                        carouselIndex === idx ? styles.indicatorActive : styles.indicatorInactive
-                      ]} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
-        </>
-      )}
 
       {/* ─── Ventas por juego ────────────────────────────────── */}
       {activeGamesWithSales.length > 0 && (
@@ -844,5 +853,33 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
+  },
+  carouselTextOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  carouselOverlayTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  carouselOverlaySubtitle: {
+    color: '#d1d5db',
+    fontSize: 11,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });

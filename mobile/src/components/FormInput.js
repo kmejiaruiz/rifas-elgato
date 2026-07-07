@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { RADIUS, getThemeColors } from '../styles/theme';
+import { COLORS, RADIUS, getThemeColors } from '../styles/theme';
 import { useApp } from '../context/AppContext';
 
 export const FormInput = ({

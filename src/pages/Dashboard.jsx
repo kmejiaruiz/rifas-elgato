@@ -79,7 +79,15 @@ export const Dashboard = () => {
   ];
 
   const slidesToRender = carouselImages.length > 0
-    ? carouselImages.map(url => ({ type: 'image', url: buildImageUrl(url) }))
+    ? carouselImages.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          return {
+            ...item,
+            url: item.url ? buildImageUrl(item.url) : null
+          };
+        }
+        return { type: 'image', url: buildImageUrl(item) };
+      })
     : defaultSlides;
 
   const goToSlide = (idx) => {
@@ -369,11 +377,31 @@ export const Dashboard = () => {
                 {slidesToRender.map((slide, idx) => (
                   <div key={idx} className="carousel-slide">
                     {slide.type === 'image' ? (
-                      <img
-                        src={slide.url}
-                        alt={`Anuncio ${idx + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      />
+                      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                        <img
+                          src={slide.url}
+                          alt={`Anuncio ${idx + 1}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                        {(slide.title || slide.subtitle) && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: '1.25rem',
+                            background: 'linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 60%, rgba(0, 0, 0, 0) 100%)',
+                            color: '#fff',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            textAlign: 'left'
+                          }}>
+                            {slide.title && <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{slide.title}</h3>}
+                            {slide.subtitle && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{slide.subtitle}</p>}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div style={{
                         width: '100%', height: '100%',

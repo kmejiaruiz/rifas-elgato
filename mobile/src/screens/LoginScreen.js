@@ -99,17 +99,9 @@ export const LoginScreen = () => {
         {/* Tarjeta de Formulario con Glow en Borde */}
         <View style={styles.cardContainer}>
           <GlassCard style={styles.formCard}>
-            {/* Indicador de conexión segura */}
-            <View style={styles.secureBadgeRow}>
-              <View style={styles.secureBadge}>
-                <CheckCircle2 size={12} color="#10b981" />
-                <Text style={styles.secureBadgeText}>CONEXIÓN SEGURA SSL</Text>
-              </View>
-            </View>
-
             <View style={styles.inputContainer}>
               <FormInput
-                label="Usuario de Vendedor"
+                label="Usuario"
                 value={username}
                 onChangeText={setUsername}
                 placeholder="Ingrese su usuario"
@@ -250,27 +242,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     backgroundColor: 'rgba(17, 24, 39, 0.75)', // Cristal oscuro translúcido
   },
-  secureBadgeRow: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  secureBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  secureBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#34d399',
-    letterSpacing: 0.8,
-  },
+
   inputContainer: {
     marginBottom: 12,
     width: '100%',

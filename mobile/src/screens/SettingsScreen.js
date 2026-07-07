@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Switch,
-  TouchableOpacity, ActivityIndicator, Alert, Image
+  TouchableOpacity, ActivityIndicator, Alert, Image, TextInput
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';

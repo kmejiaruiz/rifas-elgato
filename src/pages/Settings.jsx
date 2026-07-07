@@ -36,13 +36,41 @@ export const Settings = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const buildImageUrl = (url) => {
-    if (!url) return url;
+  const buildImageUrl = (item) => {
+    if (!item) return '';
+    const url = typeof item === 'object' && item !== null ? item.url : item;
+    if (!url) return '';
     if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) return url;
     try {
-      const apiUrl = getApiUrl(); // window.location.origin
+      const apiUrl = getApiUrl();
       return apiUrl.replace(/\/+$/, '') + url;
     } catch { return url; }
+  };
+
+  const handleUpdateSlideField = (index, field, value) => {
+    const currentImages = JSON.parse(form.carousel_images || '[]');
+    const item = currentImages[index];
+    if (typeof item === 'string') {
+      currentImages[index] = { type: 'image', url: item, title: '', subtitle: '' };
+    } else if (typeof item === 'object' && item !== null) {
+      currentImages[index] = { ...item };
+    } else {
+      currentImages[index] = {};
+    }
+    currentImages[index][field] = value;
+    setForm(f => ({ ...f, carousel_images: JSON.stringify(currentImages) }));
+  };
+
+  const handleAddTextSlide = () => {
+    const currentImages = JSON.parse(form.carousel_images || '[]');
+    const newSlide = {
+      type: 'text',
+      title: 'Título del Anuncio',
+      subtitle: 'Descripción o mensaje',
+      background: '#6366f1'
+    };
+    const newImages = [...currentImages, newSlide];
+    setForm(f => ({ ...f, carousel_images: JSON.stringify(newImages) }));
   };
 
   const isAdmin = user?.role === 'admin';
@@ -252,8 +280,7 @@ export const Settings = () => {
         }
         
         const currentImages = JSON.parse(form.carousel_images || '[]');
-        const newImages = [...currentImages, data.url];
-        
+        const newImages = [...currentImages, { type: 'image', url: data.url, title: '', subtitle: '' }];
         setForm(f => ({ ...f, carousel_images: JSON.stringify(newImages) }));
         toast.success('Imagen subida y recortada con éxito', { id: 'upload' });
         
@@ -387,43 +414,134 @@ export const Settings = () => {
           💡 Para un ajuste óptimo en PC y móvil, se recomienda subir imágenes horizontales (panorámicas) con una proporción de 21:9 o resolución de 1200 x 500 píxeles.
         </span>
         
-        {/* Vista previa de imágenes actuales */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-          {JSON.parse(form.carousel_images || '[]').map((url, idx) => (
-            <div key={idx} style={{ position: 'relative', width: 80, height: 80, borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <img src={buildImageUrl(url)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <button 
-                type="button"
-                onClick={() => handleDeleteImage(idx)}
+        {/* Lista de diapositivas */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.5rem' }}>
+          {JSON.parse(form.carousel_images || '[]').map((item, idx) => {
+            const isObject = typeof item === 'object' && item !== null;
+            const type = isObject ? (item.type || (item.url ? 'image' : 'text')) : 'image';
+            const title = isObject ? (item.title || '') : '';
+            const subtitle = isObject ? (item.subtitle || '') : '';
+            const background = isObject ? (item.background || '#7c3aed') : '#7c3aed';
+
+            return (
+              <div 
+                key={idx} 
                 style={{ 
-                  position: 'absolute', top: 2, right: 2, 
-                  background: 'rgba(239, 68, 68, 0.9)', 
-                  border: 'none', borderRadius: '50%', 
-                  width: 18, height: 18, 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                  color: '#fff', cursor: 'pointer', fontSize: '10px' 
+                  display: 'flex', 
+                  gap: '1rem', 
+                  alignItems: 'center', 
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '10px', 
+                  padding: '0.8rem' 
                 }}
               >
-                ✕
-              </button>
-            </div>
-          ))}
+                {/* Miniatura */}
+                <div style={{ width: 64, height: 64, borderRadius: '6px', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', flexShrink: 0 }}>
+                  {type === 'image' ? (
+                    <img src={buildImageUrl(item)} alt={`Slide ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', backgroundColor: background, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '10px', fontWeight: 'bold' }}>
+                      TEXTO
+                    </div>
+                  )}
+                </div>
+
+                {/* Controles de texto */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => handleUpdateSlideField(idx, 'title', e.target.value)}
+                    placeholder="Título de la diapositiva"
+                    style={{ 
+                      width: '100%', 
+                      fontSize: '0.85rem', 
+                      fontWeight: 'bold', 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: '5px', 
+                      padding: '0.25rem 0.5rem', 
+                      color: 'var(--text-primary)' 
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={subtitle}
+                    onChange={(e) => handleUpdateSlideField(idx, 'subtitle', e.target.value)}
+                    placeholder="Subtítulo / Mensaje descriptivo"
+                    style={{ 
+                      width: '100%', 
+                      fontSize: '0.76rem', 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: '5px', 
+                      padding: '0.25rem 0.5rem', 
+                      color: 'var(--text-secondary)' 
+                    }}
+                  />
+                  {type === 'text' && (
+                    <input
+                      type="text"
+                      value={background}
+                      onChange={(e) => handleUpdateSlideField(idx, 'background', e.target.value)}
+                      placeholder="Color de Fondo (ej: #7c3aed)"
+                      style={{ 
+                        width: '100%', 
+                        fontSize: '0.72rem', 
+                        fontFamily: 'monospace', 
+                        background: 'rgba(255,255,255,0.03)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: '5px', 
+                        padding: '0.2rem 0.5rem', 
+                        color: 'var(--accent-light)' 
+                      }}
+                    />
+                  )}
+                </div>
+
+                {/* Botón de borrar */}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteImage(idx)}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--danger-light)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
+                  onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
           {JSON.parse(form.carousel_images || '[]').length === 0 && (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem 0' }}>
-              No hay imágenes en el carrusel.
+              No hay diapositivas en el carrusel.
             </div>
           )}
         </div>
 
-        {/* Botón de subir archivo */}
-        <div style={{ marginTop: '0.5rem' }}>
+        {/* Botones de acción del carrusel */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
           <label 
             htmlFor="upload-carousel-file"
             className="btn btn-ghost" 
             style={{ 
               display: 'inline-flex', alignItems: 'center', gap: '0.5rem', 
               fontSize: '0.8rem', padding: '0.5rem 1rem', cursor: 'pointer',
-              border: '1px dashed var(--border)'
+              border: '1px dashed var(--border)', margin: 0, flex: 1, justifyContent: 'center'
             }}
           >
             Seleccionar Imagen
@@ -436,6 +554,17 @@ export const Settings = () => {
             style={{ display: 'none' }} 
             key={localPreviewUrl || 'input'} /* Reset input on clear */
           />
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={handleAddTextSlide}
+            style={{ 
+              fontSize: '0.8rem', padding: '0.5rem 1rem', 
+              border: '1px dashed var(--border)', flex: 1, justifyContent: 'center' 
+            }}
+          >
+            Agregar Diapositiva de Texto
+          </button>
         </div>
 
         {/* Vista previa real dinámica */}

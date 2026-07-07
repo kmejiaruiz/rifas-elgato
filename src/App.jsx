@@ -102,7 +102,14 @@ const AppShell = () => {
     };
     checkQueue();
     const interval = setInterval(checkQueue, 4000);
-    return () => clearInterval(interval);
+
+    const handleOpenModal = () => setShowQueueModal(true);
+    window.addEventListener('rifas:open-offline-modal', handleOpenModal);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('rifas:open-offline-modal', handleOpenModal);
+    };
   }, []);
 
   const NAV_ITEMS = [

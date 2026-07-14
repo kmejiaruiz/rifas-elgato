@@ -333,6 +333,25 @@ export const AppProvider = ({ children }) => {
 
       // Guardar settings en caché local por si la app va offline
       await storage.set('cached_settings', parseSettings(rawSettings));
+
+      // Precargar números bloqueados de todos los juegos activos de una vez
+      try {
+        const gameIds = Object.keys(gameConfigs);
+        const allGameIds = Array.from(new Set([...gameIds, 'la_tica', 'la_hondurena', 'juega3', 'pega4', 'fechea']));
+        await Promise.all(
+          allGameIds.map(async (gid) => {
+            try {
+              const blockRes = await api.get(`/blocked?lottery_id=${encodeURIComponent(gid)}`);
+              const blocked = blockRes.blocked || [];
+              await storage.set(`blocked_numbers_${gid}`, blocked);
+            } catch (err) {
+              console.warn(`[AppContext] Error precargando bloqueos para ${gid}:`, err.message);
+            }
+          })
+        );
+      } catch (errBlock) {
+        console.warn('[AppContext] Error general precargando bloqueos:', errBlock.message);
+      }
     } catch (err) {
       console.warn('[AppContext] loadAllData error:', err.message);
       // Intentar cargar desde caché local si hay error de red

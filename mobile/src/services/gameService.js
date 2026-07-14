@@ -1,8 +1,9 @@
-﻿// ============================================================
+// ============================================================
 // gameService — Consultas de juegos, bloqueos y estado
 // Espejo del gameService de la app web React
 // ============================================================
 import { api } from './apiService';
+import { storage } from './storageService';
 
 /**
  * Retorna la lista de números bloqueados para un juego dado.
@@ -11,11 +12,17 @@ import { api } from './apiService';
  */
 export const getBlockedNumbers = async (lotteryId) => {
   if (!lotteryId) return [];
+  const storageKey = `blocked_numbers_${lotteryId}`;
   try {
     const res = await api.get(`/blocked?lottery_id=${encodeURIComponent(lotteryId)}`);
-    return res.blocked || [];
+    const blocked = res.blocked || [];
+    // Guardar localmente
+    await storage.set(storageKey, blocked);
+    return blocked;
   } catch {
-    return [];
+    // Si falla (ej. sin conexión), intentar leer del almacenamiento local
+    const cached = await storage.get(storageKey);
+    return cached || [];
   }
 };
 

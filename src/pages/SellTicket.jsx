@@ -309,6 +309,26 @@ export const SellTicket = () => {
   const [rangeTo, setRangeTo] = useState('');
   const [rangeMonto, setRangeMonto] = useState('');
 
+  // Efecto para limpiar o restaurar jugada inicial vacía según el modo
+  useEffect(() => {
+    if (saleMode === 'range') {
+      setJugadas(prev => {
+        if (prev.length === 1 && prev[0].numero === '') {
+          return [];
+        }
+        return prev;
+      });
+    } else {
+      setJugadas(prev => {
+        if (prev.length === 0) {
+          const lt = getLotteryById(selectedType);
+          return [emptyJugada(selectedType, lt?.defaultPrice || 0)];
+        }
+        return prev;
+      });
+    }
+  }, [saleMode, selectedType]);
+
   // Inicializar sorteo disponible
   useEffect(() => {
     const closeMinutes = settings?.drawCloseMinutes ?? 10;
@@ -326,6 +346,19 @@ export const SellTicket = () => {
   const isGameDisabled = disabledGames.includes(selectedType);
   const activeHoursCount = (lottery?.allowMultiDraw && selectedHours.length > 1) ? selectedHours.length : 1;
   const totalMonto = jugadas.reduce((s, j) => s + (parseFloat(j.monto) || 0), 0) * activeHoursCount;
+
+  const desdeNum = parseInt(rangeFrom, 10);
+  const hastaNum = parseInt(rangeTo, 10);
+  const montoNum = parseFloat(rangeMonto) || 0;
+  
+  let tempCount = 0;
+  let tempTotal = 0;
+  if (!isNaN(desdeNum) && !isNaN(hastaNum)) {
+    const start = Math.min(desdeNum, hastaNum);
+    const end = Math.max(desdeNum, hastaNum);
+    tempCount = end - start + 1;
+    tempTotal = tempCount * montoNum * activeHoursCount;
+  }
 
   const lotteryDrawHours = lottery?.drawHours
     ? lottery.drawHours.split(',').map(h => h.trim()).filter(Boolean)
@@ -479,6 +512,7 @@ export const SellTicket = () => {
         horaSorteo: selectedHour,
         ...(isMulti ? { multiHours: selectedHours } : {}),
         drawDate: selectedDate,
+        isRange: saleMode === 'range',
         jugadas: jugadas.map((j) => ({
           numero:    j.numero,
           monto:     parseFloat(j.monto) || 0,
@@ -795,6 +829,27 @@ export const SellTicket = () => {
                 </div>
               </div>
 
+              {tempCount > 0 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'rgba(255,255,255,0.03)',
+                  padding: '0.65rem 0.88rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  fontSize: '0.82rem',
+                  marginTop: '0.25rem'
+                }}>
+                  <span>
+                    Rango: <strong style={{ color: 'var(--accent-light)' }}>{tempCount} números</strong>
+                  </span>
+                  <span>
+                    Total: <strong style={{ color: 'var(--neon-green)' }}>{lottery.priceLabel}{tempTotal.toFixed(2)}</strong>
+                  </span>
+                </div>
+              )}
+
               <button
                 type="button"
                 className="btn btn-primary btn-full"
@@ -1028,6 +1083,7 @@ export const SellTicket = () => {
           selectedHour={selectedHour}
           onConfirm={handleConfirmSale}
           onCancel={() => setShowConfirm(false)}
+          saleMode={saleMode}
         />
       )}
     </div>
@@ -1035,8 +1091,8 @@ export const SellTicket = () => {
 };
 
 // ─── Modal de confirmación inline ────────────────────────────
-const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDate, selectedHour, onConfirm, onCancel }) => {
-  const isSummarized = jugadas.length > 5;
+const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDate, selectedHour, onConfirm, onCancel, saleMode }) => {
+  const isSummarized = saleMode === 'range' && jugadas.length > 5;
   
   // Calcular datos del rango resumido
   let rangeText = '';
@@ -1134,9 +1190,11 @@ const ConfirmModal = ({ lottery, jugadas, comprador, total, loading, selectedDat
               </div>
               
               {missingNums.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', gap: '0.25rem' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--neon-red)', fontWeight: 700, textTransform: 'uppercase' }}>Omitidos (Cerrados)</span>
-                  <span style={{ fontWeight: 800, color: 'var(--neon-red)', fontSize: '0.9rem' }}>{missingNums.map(n => `#${n}`).join(', ')}</span>
+                  <div style={{ maxHeight: '60px', overflowY: 'auto', fontWeight: 850, color: 'var(--neon-red)', fontSize: '0.85rem', lineHeight: 1.3, textAlign: 'left', background: 'rgba(239, 68, 68, 0.05)', padding: '6px', borderRadius: '4px' }}>
+                    {missingNums.map(n => `#${n}`).join(', ')}
+                  </div>
                 </div>
               )}
               

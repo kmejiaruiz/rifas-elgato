@@ -113,7 +113,8 @@ const buildTicketBytes = (sale, businessName = 'Zentric') => {
 
   // ─ Jugadas ─
   const lines = sale.lines || [];
-  if (lines.length > 5) {
+  const isRangeSale = sale.isRange !== undefined ? sale.isRange : (lines.length > 5);
+  if (isRangeSale) {
     // Boleto resumido por rango
     let rangeTxt = '';
     const unitM = parseFloat(lines[0]?.monto || 0);
@@ -352,7 +353,8 @@ export const getTicketPreviewText = (sale, businessName = 'Zentric') => {
   lines.push('--------------------------------');
 
   const saleLines = sale.lines || [];
-  if (saleLines.length > 10) {
+  const isRangeSale = sale.isRange !== undefined ? sale.isRange : (saleLines.length > 10);
+  if (isRangeSale) {
     let rangeTxt = '';
     const unitM = parseFloat(saleLines[0]?.monto || 0);
     const winM = unitM * parseFloat(lottery.payoutMultiplier || 80);

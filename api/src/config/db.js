@@ -110,6 +110,7 @@ async function initSchema(dbPool) {
         seller_id VARCHAR(36),
         seller_name VARCHAR(100),
         prize_paid TINYINT(1) NOT NULL DEFAULT 0,
+        is_range TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         cancelled_at TIMESTAMP NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -285,6 +286,10 @@ async function initSchema(dbPool) {
       if (!salesColNames.includes('draw_date')) {
         await dbPool.query("ALTER TABLE sales ADD COLUMN draw_date VARCHAR(20) NULL");
         console.log('[DB Migration] sales.draw_date añadida.');
+      }
+      if (!salesColNames.includes('is_range')) {
+        await dbPool.query("ALTER TABLE sales ADD COLUMN is_range TINYINT(1) NOT NULL DEFAULT 0");
+        console.log('[DB Migration] sales.is_range añadida.');
       }
     } catch (err) {
       console.error('Error al migrar sales:', err.message);

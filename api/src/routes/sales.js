@@ -368,6 +368,7 @@ router.post('/', requireAuth, async (req, res) => {
     const horasToProcess = multiHours || [horaSorteo];
     const multiSaleId = multiHours ? `multi_${Date.now()}_${crypto.randomBytes(4).toString('hex')}` : null;
 
+    const isRange = b.isRange ? 1 : 0;
     const createdIds = [];
 
     for (const hora of horasToProcess) {
@@ -389,8 +390,8 @@ router.post('/', requireAuth, async (req, res) => {
       
       // Registrar venta cabecera
       await db.query(
-        'INSERT INTO sales (id, lottery_id, comprador, monto, seller_id, seller_name, hora_sorteo, multi_sale_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [saleId, lotteryId, comprador || null, totalMonto, user.id, user.name, hora, multiSaleId]
+        'INSERT INTO sales (id, lottery_id, comprador, monto, seller_id, seller_name, hora_sorteo, multi_sale_id, is_range) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [saleId, lotteryId, comprador || null, totalMonto, user.id, user.name, hora, multiSaleId, isRange]
       );
 
       // Registrar líneas de la venta

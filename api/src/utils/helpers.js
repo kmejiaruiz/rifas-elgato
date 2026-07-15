@@ -155,6 +155,7 @@ function normalizeSale(s, lines = []) {
     sellerId: s.seller_id,
     sellerName: s.seller_name,
     prizePaid: Boolean(s.prize_paid ?? 0),
+    isRange: Boolean(s.is_range ?? 0),
     horaSorteo: s.hora_sorteo ?? '12:00',
     createdAt: s.created_at,
     cancelledAt: s.cancelled_at ?? null,

@@ -259,10 +259,10 @@ const JugadaRow = ({ jugada, index, lottery, isFechea, blockedNums, onUpdate, on
 };
 
 // ─── Modal de confirmación ────────────────────────────────────
-const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, selectedHour, selectedHours = [], totalMonto, loading, onConfirm, onCancel }) => {
+const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, selectedHour, selectedHours = [], totalMonto, loading, onConfirm, onCancel, saleMode }) => {
   const insets = useSafeAreaInsets();
   if (!lottery) return null;
-  const isSummarized = jugadas.length > 5;
+  const isSummarized = saleMode === 'range' && jugadas.length > 5;
   let rangeText = '';
   let unitMonto = 0;
 
@@ -340,11 +340,15 @@ const ConfirmModal = ({ visible, lottery, jugadas, comprador, selectedDate, sele
                 <Text style={[styles.summaryValue, { color: '#fbbf24', fontWeight: '800' }]}>{rangeText}</Text>
               </View>
               {missingNums.length > 0 && (
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: COLORS.dangerLight }]}>OMITIDOS (CERRADOS)</Text>
-                  <Text style={[styles.summaryValue, { color: COLORS.dangerLight, fontWeight: '800', fontSize: 11 }]}>
-                    {missingNums.map(n => `#${n}`).join(', ')}
-                  </Text>
+                <View style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingBottom: 10, marginBottom: 10 }}>
+                  <Text style={[styles.summaryLabel, { color: COLORS.dangerLight, marginBottom: 6 }]}>OMITIDOS (CERRADOS)</Text>
+                  <View style={{ maxHeight: 60, backgroundColor: 'rgba(239, 68, 68, 0.08)', padding: 6, borderRadius: 6 }}>
+                    <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
+                      <Text style={{ color: COLORS.dangerLight, fontWeight: '800', fontSize: 11, lineHeight: 15 }}>
+                        {missingNums.map(n => `#${n}`).join(', ')}
+                      </Text>
+                    </ScrollView>
+                  </View>
                 </View>
               )}
               <View style={styles.summaryRow}>
@@ -435,7 +439,8 @@ const generateTicketText = (sale, settings, lottery) => {
   list.push(`Vendedor: ${sale.sellerName || 'Vendedor'}`);
   list.push('--------------------------------');
 
-  if (lines.length > 10) {
+  const isRangeSale = sale.isRange !== undefined ? sale.isRange : (lines.length > 10);
+  if (isRangeSale) {
     let rangeTxt = '';
     const unitM = parseFloat(lines[0]?.monto || 0);
     const winM = unitM * parseFloat(lottery.payoutMultiplier || 80);
@@ -498,7 +503,8 @@ const generateWhatsAppText = (sale, settings, lottery) => {
   list.push(`*Cliente:* ${sale.comprador || '—'}`);
   list.push(`━━━━━━━━━━━━━━━━━━━━━\n`);
 
-  if (lines.length > 10) {
+  const isRangeSale = sale.isRange !== undefined ? sale.isRange : (lines.length > 10);
+  if (isRangeSale) {
     let rangeTxt = '';
     const unitM = parseFloat(lines[0]?.monto || 0);
     const winM = unitM * parseFloat(lottery.payoutMultiplier || 80);
@@ -568,6 +574,26 @@ export const SellTicketScreen = ({ onNavigate }) => {
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [rangeMonto, setRangeMonto] = useState('');
+
+  // Efecto para limpiar o restaurar jugada inicial vacía según el modo
+  useEffect(() => {
+    if (saleMode === 'range') {
+      setJugadas(prev => {
+        if (prev.length === 1 && prev[0].numero === '') {
+          return [];
+        }
+        return prev;
+      });
+    } else {
+      setJugadas(prev => {
+        if (prev.length === 0) {
+          const lt = lotteries.find(l => l.id === selectedType);
+          return [emptyJugada(selectedType, lt?.defaultPrice || 0)];
+        }
+        return prev;
+      });
+    }
+  }, [saleMode, selectedType, lotteries]);
 
   // Cargar juegos deshabilitados al inicio
   useEffect(() => {
@@ -738,6 +764,7 @@ export const SellTicketScreen = ({ onNavigate }) => {
         horaSorteo: selectedHour,
         ...(isMulti ? { multiHours: selectedHours } : {}),
         drawDate: selectedDate,
+        isRange: saleMode === 'range',
         jugadas: jugadas.map(j => ({
           numero:    isFechea ? '' : j.numero,
           monto:     parseFloat(j.monto) || 0,
@@ -902,6 +929,19 @@ export const SellTicketScreen = ({ onNavigate }) => {
       window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
     }
   };
+
+  const desdeNum = parseInt(rangeFrom, 10);
+  const hastaNum = parseInt(rangeTo, 10);
+  const montoNum = parseFloat(rangeMonto) || 0;
+  
+  let tempCount = 0;
+  let tempTotal = 0;
+  if (!isNaN(desdeNum) && !isNaN(hastaNum)) {
+    const start = Math.min(desdeNum, hastaNum);
+    const end = Math.max(desdeNum, hastaNum);
+    tempCount = end - start + 1;
+    tempTotal = tempCount * montoNum * activeHoursCount;
+  }
 
   if (dataLoading) {
     return (
@@ -1124,6 +1164,27 @@ export const SellTicketScreen = ({ onNavigate }) => {
                     />
                   </View>
                 </View>
+                {tempCount > 0 && (
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: isDarkMode ? 'rgba(59,130,246,0.06)' : 'rgba(79,70,229,0.04)',
+                    padding: 10,
+                    borderRadius: 8,
+                    marginBottom: 10,
+                    marginTop: 6,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? 'rgba(59,130,246,0.15)' : 'rgba(79,70,229,0.1)',
+                  }}>
+                    <Text style={{ fontSize: 11, color: activeColors.textSecondary, fontWeight: '600' }}>
+                      Rango: <Text style={{ color: activeColors.primaryLight, fontWeight: '700' }}>{tempCount} números</Text>
+                    </Text>
+                    <Text style={{ fontSize: 11, color: activeColors.textSecondary, fontWeight: '600' }}>
+                      Total: <Text style={{ color: COLORS.successLight, fontWeight: '800' }}>{lottery.priceLabel}{tempTotal.toFixed(2)}</Text>
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity style={styles.addRangeBtn} onPress={handleAddRange}>
                   <Plus size={16} color="#fff" />
                   <Text style={styles.addRangeBtnText}>Agregar Rango al Boleto</Text>
@@ -1263,6 +1324,7 @@ export const SellTicketScreen = ({ onNavigate }) => {
         loading={loading}
         onConfirm={handleConfirmSale}
         onCancel={() => setShowConfirm(false)}
+        saleMode={saleMode}
       />
 
       {/* ─── Modal de Comprobante (Voucher Reutilizable) ────────────── */}
